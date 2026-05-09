@@ -2,10 +2,10 @@ package auth
 
 import (
 	"bytes"
-	"errors"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/everscribe/cli/internal/config"
 )
@@ -20,73 +20,51 @@ func savePAT(t *testing.T) *config.PAT {
 		UserEmail: "alice@example.com",
 		ExpiresAt: time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC),
 	}
-	if err := config.Save(pat); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, config.Save(pat))
 	return pat
 }
 
 func TestRunWhoami_Table(t *testing.T) {
 	savePAT(t)
 	var buf bytes.Buffer
-	if err := runWhoami(&buf, "table"); err != nil {
-		t.Fatalf("runWhoami: %v", err)
-	}
+	require.NoError(t, runWhoami(&buf, "table"))
 	out := buf.String()
 	for _, want := range []string{"EMAIL", "USER ID", "PAT ID", "EXPIRES", "alice@example.com", "u_1", "pat-uuid", "2026-08-07"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("table output missing %q:\n%s", want, out)
-		}
+		require.Containsf(t, out, want, "table output missing %q", want)
 	}
-	// Token must NEVER appear in whoami output.
-	if strings.Contains(out, "pat_secret") {
-		t.Errorf("whoami leaked token in table output: %q", out)
-	}
+	require.NotContains(t, out, "pat_secret", "whoami must not leak token")
 }
 
 func TestRunWhoami_JSON(t *testing.T) {
 	savePAT(t)
 	var buf bytes.Buffer
-	if err := runWhoami(&buf, "json"); err != nil {
-		t.Fatalf("runWhoami: %v", err)
-	}
+	require.NoError(t, runWhoami(&buf, "json"))
 	out := buf.String()
 	for _, want := range []string{`"email": "alice@example.com"`, `"user_id": "u_1"`, `"pat_id": "pat-uuid"`} {
-		if !strings.Contains(out, want) {
-			t.Errorf("JSON output missing %q:\n%s", want, out)
-		}
+		require.Containsf(t, out, want, "JSON output missing %q", want)
 	}
-	if strings.Contains(out, "pat_secret") {
-		t.Errorf("whoami leaked token in JSON output: %q", out)
-	}
+	require.NotContains(t, out, "pat_secret", "whoami must not leak token")
 }
 
 func TestRunWhoami_YAML(t *testing.T) {
 	savePAT(t)
 	var buf bytes.Buffer
-	if err := runWhoami(&buf, "yaml"); err != nil {
-		t.Fatalf("runWhoami: %v", err)
-	}
+	require.NoError(t, runWhoami(&buf, "yaml"))
 	out := buf.String()
 	for _, want := range []string{"email: alice@example.com", "user_id: u_1", "pat_id: pat-uuid"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("YAML output missing %q:\n%s", want, out)
-		}
+		require.Containsf(t, out, want, "YAML output missing %q", want)
 	}
 }
 
 func TestRunWhoami_NotLoggedIn(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	err := runWhoami(&bytes.Buffer{}, "table")
-	if !errors.Is(err, config.ErrNotLoggedIn) {
-		t.Errorf("err = %v, want ErrNotLoggedIn", err)
-	}
+	require.ErrorIs(t, err, config.ErrNotLoggedIn)
 }
 
 func TestRunWhoami_RejectsBadFormat(t *testing.T) {
 	savePAT(t)
 	err := runWhoami(&bytes.Buffer{}, "xml")
-	if err == nil || !strings.Contains(err.Error(), "invalid") {
-		t.Errorf("err = %v, want format error", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid")
 }

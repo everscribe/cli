@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestTableAlignment(t *testing.T) {
@@ -12,20 +14,15 @@ func TestTableAlignment(t *testing.T) {
 	tbl.Header("ID", "NAME", "STATUS")
 	tbl.Row("a1", "short", "ok")
 	tbl.Row("a22", "much-longer-name", "denied")
-	if err := tbl.Flush(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, tbl.Flush())
 
 	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
-	if len(lines) != 3 {
-		t.Fatalf("got %d lines, want 3:\n%s", len(lines), buf.String())
-	}
+	require.Len(t, lines, 3)
 
-	idIdx := strings.Index(lines[0], "NAME")
+	nameIdx := strings.Index(lines[0], "NAME")
 	for _, l := range lines[1:] {
-		if strings.Index(l, strings.Fields(l)[1]) != idIdx {
-			t.Errorf("column NAME not aligned at index %d in row %q", idIdx, l)
-		}
+		require.Equalf(t, nameIdx, strings.Index(l, strings.Fields(l)[1]),
+			"NAME column not aligned in row %q", l)
 	}
 }
 
@@ -33,10 +30,6 @@ func TestTableEmptyCellRendersDash(t *testing.T) {
 	var buf bytes.Buffer
 	tbl := NewTable(&buf)
 	tbl.Row("a", "", "c")
-	if err := tbl.Flush(); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(buf.String(), "-") {
-		t.Errorf("empty cell not rendered as dash: %q", buf.String())
-	}
+	require.NoError(t, tbl.Flush())
+	require.Contains(t, buf.String(), "-", "empty cells should render as dash")
 }

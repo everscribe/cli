@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // callbackURL builds the loopback URL for a given port.
@@ -16,8 +18,9 @@ func callbackURL(port int) string {
 }
 
 // postForm POSTs form data and returns (status, err). Returning the
-// error lets callers in goroutines route failures through t.Errorf —
-// t.Fatalf is unsafe outside the main test goroutine.
+// error lets goroutine callers route failures through assert (the
+// non-fatal counterpart) — require.X / t.Fatalf are unsafe outside
+// the main test goroutine.
 func postForm(port int, form url.Values) (int, error) {
 	resp, err := http.PostForm(callbackURL(port), form)
 	if err != nil {
@@ -29,9 +32,7 @@ func postForm(port int, form url.Values) (int, error) {
 
 func TestLoopback_HappyPath(t *testing.T) {
 	srv, err := newLoopbackServer("test-state-abc123")
-	if err != nil {
-		t.Fatalf("newLoopbackServer: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { srv.Close() })
 
 	exp := time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC)
@@ -46,168 +47,118 @@ func TestLoopback_HappyPath(t *testing.T) {
 
 	go func() {
 		status, err := postForm(srv.Port(), form)
-		if err != nil {
-			t.Errorf("POST: %v", err)
-			return
-		}
-		if status != http.StatusOK {
-			t.Errorf("POST status = %d, want 200", status)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	res, err := srv.Wait(ctx)
-	if err != nil {
-		t.Fatalf("Wait: %v", err)
-	}
-	if res.Token != "pat_aaaa1111bbbb2222cccc3333dddd4444" {
-		t.Errorf("Token = %q", res.Token)
-	}
-	if res.UserEmail != "alice@example.com" {
-		t.Errorf("UserEmail = %q", res.UserEmail)
-	}
-	if !res.ExpiresAt.Equal(exp) {
-		t.Errorf("ExpiresAt = %v, want %v", res.ExpiresAt, exp)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "pat_aaaa1111bbbb2222cccc3333dddd4444", res.Token)
+	require.Equal(t, "alice@example.com", res.UserEmail)
+	require.True(t, res.ExpiresAt.Equal(exp))
 }
 
 func TestLoopback_StateMismatchRejected(t *testing.T) {
 	srv, err := newLoopbackServer("right-state")
-	if err != nil {
-		t.Fatalf("newLoopbackServer: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { srv.Close() })
 
-	form := url.Values{
-		"state": {"wrong-state"},
-		"token": {"pat_x"},
-	}
 	go func() {
-		status, err := postForm(srv.Port(), form)
-		if err != nil {
-			t.Errorf("POST: %v", err)
-			return
-		}
-		if status != http.StatusBadRequest {
-			t.Errorf("POST status = %d, want 400", status)
-		}
+		status, err := postForm(srv.Port(), url.Values{
+			"state": {"wrong-state"},
+			"token": {"pat_x"},
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, status)
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err = srv.Wait(ctx)
-	if err == nil || !strings.Contains(err.Error(), "state mismatch") {
-		t.Errorf("err = %v, want state mismatch", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "state mismatch")
 }
 
 func TestLoopback_MissingTokenRejected(t *testing.T) {
 	srv, err := newLoopbackServer("st")
-	if err != nil {
-		t.Fatalf("newLoopbackServer: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { srv.Close() })
 
 	go func() {
 		status, err := postForm(srv.Port(), url.Values{"state": {"st"}})
-		if err != nil {
-			t.Errorf("POST: %v", err)
-			return
-		}
-		if status != http.StatusBadRequest {
-			t.Errorf("POST status = %d, want 400", status)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, status)
 	}()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err = srv.Wait(ctx)
-	if err == nil || !strings.Contains(err.Error(), "no token") {
-		t.Errorf("err = %v, want no token", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no token")
 }
 
 func TestLoopback_NoExpiryParsesAsZero(t *testing.T) {
 	srv, err := newLoopbackServer("st")
-	if err != nil {
-		t.Fatalf("newLoopbackServer: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { srv.Close() })
 
 	go func() {
-		if _, err := postForm(srv.Port(), url.Values{
+		_, err := postForm(srv.Port(), url.Values{
 			"state": {"st"},
 			"token": {"pat_x"},
 			// expires_at intentionally omitted
-		}); err != nil {
-			t.Errorf("POST: %v", err)
-		}
+		})
+		assert.NoError(t, err)
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	res, err := srv.Wait(ctx)
-	if err != nil {
-		t.Fatalf("Wait: %v", err)
-	}
-	if !res.ExpiresAt.IsZero() {
-		t.Errorf("ExpiresAt = %v, want zero", res.ExpiresAt)
-	}
+	require.NoError(t, err)
+	require.True(t, res.ExpiresAt.IsZero())
 }
 
 func TestLoopback_BadExpiresAtRejected(t *testing.T) {
 	srv, err := newLoopbackServer("st")
-	if err != nil {
-		t.Fatalf("newLoopbackServer: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { srv.Close() })
 
 	go func() {
-		if _, err := postForm(srv.Port(), url.Values{
+		_, err := postForm(srv.Port(), url.Values{
 			"state":      {"st"},
 			"token":      {"pat_x"},
 			"expires_at": {"not-a-time"},
-		}); err != nil {
-			t.Errorf("POST: %v", err)
-		}
+		})
+		assert.NoError(t, err)
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err = srv.Wait(ctx)
-	if err == nil || !strings.Contains(err.Error(), "expires_at") {
-		t.Errorf("err = %v, want parse error", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expires_at")
 }
 
 func TestLoopback_GetMethodRejected(t *testing.T) {
 	srv, err := newLoopbackServer("st")
-	if err != nil {
-		t.Fatalf("newLoopbackServer: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { srv.Close() })
 
 	resp, err := http.Get(callbackURL(srv.Port()))
-	if err != nil {
-		t.Fatalf("GET: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { resp.Body.Close() })
-	if resp.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want 405", resp.StatusCode)
-	}
+	require.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
 }
 
 func TestLoopback_TimeoutPropagates(t *testing.T) {
 	srv, err := newLoopbackServer("st")
-	if err != nil {
-		t.Fatalf("newLoopbackServer: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { srv.Close() })
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	_, err = srv.Wait(ctx)
-	if err != context.DeadlineExceeded {
-		t.Errorf("err = %v, want DeadlineExceeded", err)
-	}
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }

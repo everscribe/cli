@@ -3,6 +3,8 @@ package output
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestShortDuration(t *testing.T) {
@@ -27,8 +29,6 @@ func TestShortDuration(t *testing.T) {
 		{3 * 365 * 24 * time.Hour, "3y"},
 	}
 	for _, tc := range cases {
-		if got := ShortDuration(tc.in); got != tc.want {
-			t.Errorf("ShortDuration(%v) = %q, want %q", tc.in, got, tc.want)
-		}
+		require.Equalf(t, tc.want, ShortDuration(tc.in), "ShortDuration(%v)", tc.in)
 	}
 }

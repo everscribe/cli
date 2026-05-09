@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/everscribe/cli/internal/config"
 )
 
@@ -38,29 +41,23 @@ func stubBrowser(t *testing.T, simulateCallback func(target string)) *string {
 func simulateUICallback(t *testing.T, target string, payload url.Values) {
 	t.Helper()
 	u, err := url.Parse(target)
-	if err != nil {
-		t.Errorf("parse target URL: %v", err)
-		return
-	}
+	require.NoError(t, err, "parse target URL")
+
 	port, err := strconv.Atoi(u.Query().Get("callback_port"))
-	if err != nil {
-		t.Errorf("parse callback_port: %v", err)
-		return
-	}
+	require.NoError(t, err, "parse callback_port")
+
 	state := u.Query().Get("state")
-	if state == "" {
-		t.Errorf("state missing from URL")
-		return
-	}
-	// Use the state from the captured URL so a future state-handling
-	// regression in buildLoginURL still trips the test.
+	require.NotEmpty(t, state, "state missing from URL")
+
+	// Echo the captured state through unless the caller already set
+	// one — keeps a future state-handling regression in buildLoginURL
+	// from silently passing.
 	if payload.Get("state") == "" {
 		payload.Set("state", state)
 	}
 	go func() {
 		resp, err := http.PostForm("http://127.0.0.1:"+strconv.Itoa(port)+"/callback", payload)
-		if err != nil {
-			t.Errorf("loopback POST: %v", err)
+		if !assert.NoError(t, err, "loopback POST") {
 			return
 		}
 		resp.Body.Close()
@@ -84,42 +81,24 @@ func TestRunLogin_HappyPath(t *testing.T) {
 	})
 
 	var stdout bytes.Buffer
-	if err := runLogin(context.Background(), &stdout, 90, false); err != nil {
-		t.Fatalf("runLogin: %v", err)
-	}
+	require.NoError(t, runLogin(context.Background(), &stdout, 90, false))
 
-	if !strings.HasPrefix(*captured, "https://test.example/cli/auth?") {
-		t.Errorf("captured URL prefix wrong: %q", *captured)
-	}
-	if !strings.Contains(*captured, "expires_in_days=90") {
-		t.Errorf("expires_in_days missing from URL: %q", *captured)
-	}
+	require.True(t, strings.HasPrefix(*captured, "https://test.example/cli/auth?"),
+		"captured URL = %q", *captured)
+	require.Contains(t, *captured, "expires_in_days=90")
 
 	pat, err := config.Load()
-	if err != nil {
-		t.Fatalf("config.Load: %v", err)
-	}
-	if pat.Token != "pat_aaaa1111bbbb2222cccc3333dddd4444" {
-		t.Errorf("Token = %q", pat.Token)
-	}
-	if pat.UserEmail != "alice@example.com" {
-		t.Errorf("UserEmail = %q", pat.UserEmail)
-	}
-	if !pat.ExpiresAt.Equal(exp) {
-		t.Errorf("ExpiresAt = %v, want %v", pat.ExpiresAt, exp)
-	}
-
-	out := stdout.String()
-	if !strings.Contains(out, "alice@example.com") {
-		t.Errorf("stdout missing email: %q", out)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "pat_aaaa1111bbbb2222cccc3333dddd4444", pat.Token)
+	require.Equal(t, "alice@example.com", pat.UserEmail)
+	require.True(t, pat.ExpiresAt.Equal(exp))
+	require.Contains(t, stdout.String(), "alice@example.com")
 }
 
 func TestRunLogin_NoBrowserPrintsURL(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("EVERSCRIBE_UI_URL_OVERRIDE", "https://test.example")
 
-	// Browser opener should NOT be called when --no-browser is set.
 	browserCalled := false
 	prev := browserOpener
 	t.Cleanup(func() { browserOpener = prev })
@@ -128,16 +107,13 @@ func TestRunLogin_NoBrowserPrintsURL(t *testing.T) {
 		return nil
 	}
 
-	// Drive the callback ourselves by reading the URL from stdout.
 	type result struct {
 		err error
-		out string
 	}
 	done := make(chan result, 1)
 	stdout := &bytes.Buffer{}
 	go func() {
-		err := runLogin(context.Background(), stdout, 0, true)
-		done <- result{err: err, out: stdout.String()}
+		done <- result{err: runLogin(context.Background(), stdout, 0, true)}
 	}()
 
 	// Poll stdout for the URL the CLI printed.
@@ -156,9 +132,7 @@ func TestRunLogin_NoBrowserPrintsURL(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if loginURL == "" {
-		t.Fatalf("login URL never printed; stdout: %q", stdout.String())
-	}
+	require.NotEmpty(t, loginURL, "login URL never printed; stdout: %q", stdout.String())
 
 	simulateUICallback(t, loginURL, url.Values{
 		"token":      {"pat_x"},
@@ -166,31 +140,23 @@ func TestRunLogin_NoBrowserPrintsURL(t *testing.T) {
 	})
 
 	res := <-done
-	if res.err != nil {
-		t.Fatalf("runLogin: %v", res.err)
-	}
-	if browserCalled {
-		t.Errorf("browser opener called even with --no-browser")
-	}
-	// expires_in_days=0 means the flag was zero — buildLoginURL should
-	// omit it from the query string.
-	if strings.Contains(loginURL, "expires_in_days") {
-		t.Errorf("expires_in_days should be absent when 0: %q", loginURL)
-	}
+	require.NoError(t, res.err)
+	require.False(t, browserCalled, "browser opener called even with --no-browser")
+	require.NotContains(t, loginURL, "expires_in_days",
+		"expires_in_days should be absent when 0: %q", loginURL)
 }
 
 func TestRunLogin_TimeoutErrors(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("EVERSCRIBE_UI_URL_OVERRIDE", "https://test.example")
 
-	// Stub browser to do nothing — no callback will ever arrive.
 	prev := browserOpener
 	t.Cleanup(func() { browserOpener = prev })
 	browserOpener = func(string) error { return nil }
 
-	// Cancel the parent context before runLogin's 2-min timer would
-	// fire — keeps the test fast. runLogin's internal context inherits
-	// the cancellation.
+	// Cancel parent context before runLogin's 2-min timer fires —
+	// keeps the test fast. runLogin's internal context inherits the
+	// cancellation.
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -198,37 +164,24 @@ func TestRunLogin_TimeoutErrors(t *testing.T) {
 	}()
 
 	err := runLogin(ctx, &bytes.Buffer{}, 30, true)
-	if err == nil {
-		t.Fatal("runLogin returned nil after cancel; want context error")
-	}
+	require.Error(t, err, "expected context error after cancel")
 }
 
 func TestBuildLoginURL_OmitsZeroExpiry(t *testing.T) {
 	t.Setenv("EVERSCRIBE_UI_URL_OVERRIDE", "https://test.example")
 
 	got := buildLoginURL(45123, "abc-123", 0)
-	if strings.Contains(got, "expires_in_days") {
-		t.Errorf("URL should omit expires_in_days when 0: %q", got)
-	}
-	if !strings.Contains(got, "callback_port=45123") || !strings.Contains(got, "state=abc-123") {
-		t.Errorf("URL missing required params: %q", got)
-	}
+	require.NotContains(t, got, "expires_in_days")
+	require.Contains(t, got, "callback_port=45123")
+	require.Contains(t, got, "state=abc-123")
 }
 
 func TestGenerateState_Unique(t *testing.T) {
 	a, err := generateState()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	b, err := generateState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if a == b {
-		t.Errorf("two states collided: %q", a)
-	}
+	require.NoError(t, err)
+	require.NotEqual(t, a, b, "two states collided")
 	// 32 bytes base64url-encoded with no padding ≈ 43 chars.
-	if len(a) < 40 {
-		t.Errorf("state suspiciously short: %q", a)
-	}
+	require.GreaterOrEqual(t, len(a), 40)
 }

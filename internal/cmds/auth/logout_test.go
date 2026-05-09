@@ -3,11 +3,11 @@ package auth
 import (
 	"bytes"
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/everscribe/cli/internal/config"
 )
@@ -25,46 +25,30 @@ func TestRunLogout_RevokesAndDeletes(t *testing.T) {
 	t.Cleanup(srv.Close)
 	t.Setenv("EVERSCRIBE_API_URL_OVERRIDE", srv.URL)
 
-	if err := config.Save(&config.PAT{
+	require.NoError(t, config.Save(&config.PAT{
 		Token:     "pat_secret",
 		PATID:     "pat-1",
 		UserEmail: "alice@example.com",
-	}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	}))
 
 	var stdout bytes.Buffer
-	if err := runLogout(context.Background(), &stdout); err != nil {
-		t.Fatalf("runLogout: %v", err)
-	}
+	require.NoError(t, runLogout(context.Background(), &stdout))
 
-	if gotMethod != http.MethodDelete {
-		t.Errorf("method = %q, want DELETE", gotMethod)
-	}
-	if gotPath != "/v1/pats/pat-1" {
-		t.Errorf("path = %q", gotPath)
-	}
-	if gotAuth != "Bearer pat_secret" {
-		t.Errorf("auth = %q", gotAuth)
-	}
-	if _, err := config.Load(); !errors.Is(err, config.ErrNotLoggedIn) {
-		t.Errorf("after logout, Load: %v, want ErrNotLoggedIn", err)
-	}
-	if !strings.Contains(stdout.String(), "Logged out") {
-		t.Errorf("stdout = %q", stdout.String())
-	}
+	require.Equal(t, http.MethodDelete, gotMethod)
+	require.Equal(t, "/v1/pats/pat-1", gotPath)
+	require.Equal(t, "Bearer pat_secret", gotAuth)
+
+	_, err := config.Load()
+	require.ErrorIs(t, err, config.ErrNotLoggedIn)
+	require.Contains(t, stdout.String(), "Logged out")
 }
 
 func TestRunLogout_AlreadyLoggedOut(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	var stdout bytes.Buffer
-	if err := runLogout(context.Background(), &stdout); err != nil {
-		t.Fatalf("runLogout: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "Already logged out") {
-		t.Errorf("stdout = %q", stdout.String())
-	}
+	require.NoError(t, runLogout(context.Background(), &stdout))
+	require.Contains(t, stdout.String(), "Already logged out")
 }
 
 // TestRunLogout_TolerantToServerErrors makes sure a stale or invalid
@@ -79,20 +63,14 @@ func TestRunLogout_TolerantToServerErrors(t *testing.T) {
 	t.Cleanup(srv.Close)
 	t.Setenv("EVERSCRIBE_API_URL_OVERRIDE", srv.URL)
 
-	if err := config.Save(&config.PAT{
+	require.NoError(t, config.Save(&config.PAT{
 		Token: "pat_stale", PATID: "pat-stale", UserEmail: "x@y",
-	}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	}))
 
 	var stdout bytes.Buffer
-	if err := runLogout(context.Background(), &stdout); err != nil {
-		t.Fatalf("runLogout: %v", err)
-	}
-	if _, err := config.Load(); !errors.Is(err, config.ErrNotLoggedIn) {
-		t.Errorf("local session not cleared: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "Logged out") {
-		t.Errorf("stdout = %q", stdout.String())
-	}
+	require.NoError(t, runLogout(context.Background(), &stdout))
+
+	_, err := config.Load()
+	require.ErrorIs(t, err, config.ErrNotLoggedIn, "local session should still be cleared")
+	require.Contains(t, stdout.String(), "Logged out")
 }

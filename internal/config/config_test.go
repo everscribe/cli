@@ -1,11 +1,12 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -18,78 +19,52 @@ func TestRoundTrip(t *testing.T) {
 		UserEmail: "alice@example.com",
 		ExpiresAt: time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC),
 	}
-	if err := Save(want); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(want))
 
 	got, err := Load()
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if *got != *want {
-		t.Errorf("round-trip mismatch:\n got: %+v\nwant: %+v", *got, *want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, *want, *got)
 }
 
 func TestSavePermissions(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	if err := Save(&PAT{Token: "pat_x"}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(&PAT{Token: "pat_x"}))
 
-	p, _ := Path()
+	p, err := Path()
+	require.NoError(t, err)
+
 	info, err := os.Stat(p)
-	if err != nil {
-		t.Fatalf("Stat file: %v", err)
-	}
-	if got := info.Mode().Perm(); got != 0o600 {
-		t.Errorf("file perm = %o, want 0600", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "pat.json must be 0600")
 
 	dirInfo, err := os.Stat(filepath.Dir(p))
-	if err != nil {
-		t.Fatalf("Stat dir: %v", err)
-	}
-	if got := dirInfo.Mode().Perm(); got != 0o700 {
-		t.Errorf("dir perm = %o, want 0700", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm(), "config dir must be 0700")
 }
 
 func TestLoadMissing(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	_, err := Load()
-	if !errors.Is(err, ErrNotLoggedIn) {
-		t.Errorf("Load on missing file: err = %v, want ErrNotLoggedIn", err)
-	}
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
 
 func TestLoadEmptyTokenIsNotLoggedIn(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	if err := Save(&PAT{}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(&PAT{}))
 	_, err := Load()
-	if !errors.Is(err, ErrNotLoggedIn) {
-		t.Errorf("Load with empty token: err = %v, want ErrNotLoggedIn", err)
-	}
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
 
 func TestDeleteIdempotent(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	if err := Delete(); err != nil {
-		t.Errorf("Delete on missing file: %v", err)
-	}
-	if err := Save(&PAT{Token: "pat_x"}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
-	if err := Delete(); err != nil {
-		t.Errorf("Delete on existing file: %v", err)
-	}
-	if _, err := Load(); !errors.Is(err, ErrNotLoggedIn) {
-		t.Errorf("after Delete, Load: err = %v, want ErrNotLoggedIn", err)
-	}
+	require.NoError(t, Delete(), "Delete on missing file should be no-op")
+	require.NoError(t, Save(&PAT{Token: "pat_x"}))
+	require.NoError(t, Delete(), "Delete on existing file")
+
+	_, err := Load()
+	require.ErrorIs(t, err, ErrNotLoggedIn)
 }
