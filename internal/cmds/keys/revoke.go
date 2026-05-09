@@ -1,9 +1,14 @@
 package keys
 
 import (
-	"errors"
+	"context"
+	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
+
+	"github.com/everscribe/cli/internal/client"
+	"github.com/everscribe/cli/internal/config"
 )
 
 func newRevokeCmd() *cobra.Command {
@@ -15,9 +20,7 @@ func newRevokeCmd() *cobra.Command {
 		Use:   "revoke",
 		Short: "Revoke an ingest API key",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = project
-			_ = key
-			return errors.New("not implemented (step 5)")
+			return runRevoke(cmd.Context(), cmd.OutOrStdout(), project, key)
 		},
 	}
 	cmd.Flags().StringVar(&project, "project", "", "project ID (required)")
@@ -25,4 +28,17 @@ func newRevokeCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("project")
 	_ = cmd.MarkFlagRequired("key")
 	return cmd
+}
+
+func runRevoke(ctx context.Context, stdout io.Writer, projectID, keyID string) error {
+	pat, err := config.Load()
+	if err != nil {
+		return err
+	}
+	c := client.New(pat.Token)
+	if err := c.RevokeAPIKey(ctx, projectID, keyID); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "Key %s revoked.\n", keyID)
+	return nil
 }
