@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/everscribe/cli/internal/client"
+	"github.com/everscribe/cli/internal/cobrax"
 	"github.com/everscribe/cli/internal/config"
 )
 
@@ -18,7 +19,7 @@ func newUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update an existing project",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobrax.RequireArgs("id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUpdate(cmd.Context(), cmd.OutOrStdout(), args[0], name, format)
 		},

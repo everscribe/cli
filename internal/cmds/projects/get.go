@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/everscribe/cli/internal/client"
+	"github.com/everscribe/cli/internal/cobrax"
 	"github.com/everscribe/cli/internal/config"
 )
 
@@ -15,7 +16,7 @@ func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Fetch a single project by ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobrax.RequireArgs("id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), cmd.OutOrStdout(), args[0], format)
 		},

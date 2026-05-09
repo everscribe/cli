@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/everscribe/cli/internal/client"
+	"github.com/everscribe/cli/internal/cobrax"
 	"github.com/everscribe/cli/internal/config"
 )
 
@@ -15,7 +16,7 @@ func newUseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "use <id>",
 		Short: "Set the default project so other commands can omit --project",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobrax.RequireArgs("id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUse(cmd.Context(), cmd.OutOrStdout(), args[0])
 		},

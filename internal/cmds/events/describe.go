@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/everscribe/cli/internal/client"
+	"github.com/everscribe/cli/internal/cobrax"
 	"github.com/everscribe/cli/internal/config"
 	"github.com/everscribe/cli/internal/output"
 )
@@ -20,7 +21,7 @@ func newDescribeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe <event-id>",
 		Short: "Print the full event with all nested fields decoded",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobrax.RequireArgs("event-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectID, err := config.ResolveProjectID(project)
 			if err != nil {
