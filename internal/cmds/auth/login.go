@@ -2,27 +2,17 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os/exec"
 	"runtime"
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/everscribe/cli/internal/client"
 	"github.com/everscribe/cli/internal/config"
-)
-
-const (
-	cliAuthPath  = "/cli/auth"
-	loginTimeout = 2 * time.Minute
-	stateBytes   = 32
 )
 
 // browserOpener is the indirection that makes login_test.go possible:
@@ -32,106 +22,117 @@ var browserOpener = openBrowser
 
 func newLoginCmd() *cobra.Command {
 	var (
-		expiresInDays int
-		noBrowser     bool
+		noBrowser bool
 	)
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Authenticate by minting a personal access token via the browser",
+		Short: "Authenticate by entering a one-time code in the browser",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLogin(cmd.Context(), cmd.OutOrStdout(), expiresInDays, noBrowser)
+			return runLogin(cmd.Context(), cmd.OutOrStdout(), noBrowser)
 		},
 	}
-	cmd.Flags().IntVar(&expiresInDays, "expires-in-days", 90, "PAT lifetime in days (max 1825; 0 = no expiry)")
-	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "print the login URL instead of opening it in a browser")
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "print the verification URL instead of opening it")
 	return cmd
 }
 
-// runLogin runs the loopback browser-callback flow:
+// runLogin runs the RFC 8628 device authorization grant:
 //
-//  1. generate a 32-byte random state
-//  2. bind a localhost listener and start the loopback HTTP server
-//  3. open the user's browser at <UI>/cli/auth?callback_port=&state=
-//     (or print the URL with --no-browser)
-//  4. wait up to loginTimeout for the UI's auto-submitting form to
-//     POST /callback with the freshly minted PAT
-//  5. persist the result to ~/.config/everscribe/pat.json (mode 0600)
-func runLogin(ctx context.Context, stdout io.Writer, expiresInDays int, noBrowser bool) error {
-	state, err := generateState()
+//  1. POST /v1/cli/device-codes — receive (user_code, device_code) pair
+//  2. show user_code + verification URL to the user (and open it in
+//     a browser unless --no-browser)
+//  3. poll POST /v1/cli/device-tokens at the server-suggested interval
+//     until the user approves in the UI, the code expires, or ctx
+//     is canceled
+//  4. persist the resulting PAT to ~/.config/everscribe/pat.json
+//
+// PAT lifetime is server-controlled (90 days by default; the API can
+// override). Users who want a different lifetime can mint via the
+// /settings/developer page in the UI.
+func runLogin(ctx context.Context, stdout io.Writer, noBrowser bool) error {
+	c := client.New("")
+
+	codes, err := c.IssueDeviceCode(ctx)
 	if err != nil {
-		return fmt.Errorf("generate state: %w", err)
+		return fmt.Errorf("requesting device code: %w", err)
 	}
 
-	srv, err := newLoopbackServer(state)
-	if err != nil {
-		return err
-	}
-	defer srv.Close()
-
-	loginURL := buildLoginURL(srv.Port(), state, expiresInDays)
-
+	fmt.Fprintln(stdout, "First copy your one-time code:")
+	fmt.Fprintln(stdout)
+	fmt.Fprintln(stdout, "    "+codes.UserCode)
+	fmt.Fprintln(stdout)
 	if noBrowser {
-		fmt.Fprintf(stdout, "Open this URL in your browser to log in:\n\n  %s\n\n", loginURL)
+		fmt.Fprintln(stdout, "Then open this URL in your browser:")
+		fmt.Fprintln(stdout)
+		fmt.Fprintln(stdout, "    "+codes.VerificationURI)
 	} else {
-		fmt.Fprintln(stdout, "Opening browser to authorize the CLI…")
-		if err := browserOpener(loginURL); err != nil {
-			fmt.Fprintf(stdout, "Couldn't open browser (%v).\nOpen this URL manually:\n\n  %s\n\n", err, loginURL)
+		fmt.Fprintln(stdout, "Then open this URL in your browser (we'll try to open it for you):")
+		fmt.Fprintln(stdout)
+		fmt.Fprintln(stdout, "    "+codes.VerificationURI)
+		fmt.Fprintln(stdout)
+		if err := browserOpener(codes.VerificationURIComplete); err != nil {
+			fmt.Fprintf(stdout, "(Couldn't open browser: %v. Open the URL above manually.)\n", err)
 		}
 	}
-	fmt.Fprintf(stdout, "Waiting for callback (timeout %s)…\n", loginTimeout)
+	fmt.Fprintln(stdout)
+	fmt.Fprintln(stdout, "Waiting for authorization... (press Ctrl+C to cancel)")
 
-	waitCtx, cancel := context.WithTimeout(ctx, loginTimeout)
-	defer cancel()
+	interval := time.Duration(codes.Interval) * time.Second
+	if interval <= 0 {
+		interval = 5 * time.Second
+	}
+	deadline := time.Now().Add(time.Duration(codes.ExpiresIn) * time.Second)
 
-	res, err := srv.Wait(waitCtx)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return fmt.Errorf("timed out after %s waiting for browser callback", loginTimeout)
+	for {
+		// Wait `interval` (or until context cancels) before each poll.
+		// Polling immediately on entry would just waste a request — the
+		// user hasn't even seen the code yet.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(interval):
 		}
-		return err
-	}
 
-	pat := &config.PAT{
-		Token:     res.Token,
-		PATID:     res.PATID,
-		UserID:    res.UserID,
-		UserEmail: res.UserEmail,
-		ExpiresAt: res.ExpiresAt,
-	}
-	if err := config.Save(pat); err != nil {
-		return fmt.Errorf("save token: %w", err)
-	}
+		if time.Now().After(deadline) {
+			return errors.New("device code expired before authorization")
+		}
 
-	identifier := pat.UserEmail
-	if identifier == "" {
-		identifier = pat.UserID
-	}
-	fmt.Fprintf(stdout, "Logged in as %s.\n", identifier)
-	return nil
-}
+		resp, err := c.ExchangeDeviceCode(ctx, codes.DeviceCode)
+		if err == nil {
+			pat := &config.PAT{
+				Token:     resp.Plaintext,
+				PATID:     resp.PATID,
+				UserID:    resp.UserID,
+				UserEmail: resp.UserEmail,
+				ExpiresAt: resp.PATExpiresAt,
+			}
+			if err := config.Save(pat); err != nil {
+				return fmt.Errorf("save token: %w", err)
+			}
+			identifier := pat.UserEmail
+			if identifier == "" {
+				identifier = pat.UserID
+			}
+			fmt.Fprintf(stdout, "Logged in as %s.\n", identifier)
+			return nil
+		}
 
-func buildLoginURL(port int, state string, expiresInDays int) string {
-	q := url.Values{
-		"callback_port": {strconv.Itoa(port)},
-		"state":         {state},
+		switch {
+		case client.IsAuthorizationPending(err):
+			// Keep polling.
+			continue
+		case client.IsExpiredToken(err):
+			return errors.New("device code expired before authorization")
+		case client.IsAccessDenied(err):
+			return errors.New("authorization denied")
+		default:
+			return fmt.Errorf("polling for authorization: %w", err)
+		}
 	}
-	if expiresInDays > 0 {
-		q.Set("expires_in_days", strconv.Itoa(expiresInDays))
-	}
-	return client.UIBaseURL() + cliAuthPath + "?" + q.Encode()
-}
-
-func generateState() (string, error) {
-	buf := make([]byte, stateBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
 // openBrowser launches the OS default browser at targetURL. Detached
-// from the parent process: Start (not Run) so we don't block waiting
-// for the browser to exit.
+// from the parent — Start (not Run) so we don't block on the browser
+// process.
 func openBrowser(targetURL string) error {
 	var cmd string
 	var args []string

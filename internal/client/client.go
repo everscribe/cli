@@ -21,31 +21,13 @@ import (
 // DefaultBaseURL is the production Everscribe API.
 const DefaultBaseURL = "https://api.everscribe.io"
 
-// DefaultUIBaseURL is the production Everscribe UI host. The CLI opens
-// the browser at <DefaultUIBaseURL>/cli/auth for the loopback login
-// flow; nothing else in the CLI talks to the UI directly.
-const DefaultUIBaseURL = "https://everscribe.io"
-
-const (
-	apiOverrideEnv = "EVERSCRIBE_API_URL_OVERRIDE"
-	uiOverrideEnv  = "EVERSCRIBE_UI_URL_OVERRIDE"
-)
+const apiOverrideEnv = "EVERSCRIBE_API_URL_OVERRIDE"
 
 func resolveBaseURL() string {
 	if v := os.Getenv(apiOverrideEnv); v != "" {
 		return v
 	}
 	return DefaultBaseURL
-}
-
-// UIBaseURL returns the UI host with any override applied. Honors
-// EVERSCRIBE_UI_URL_OVERRIDE for tests; otherwise hardcoded to
-// DefaultUIBaseURL.
-func UIBaseURL() string {
-	if v := os.Getenv(uiOverrideEnv); v != "" {
-		return v
-	}
-	return DefaultUIBaseURL
 }
 
 // Client is the Everscribe API client.
