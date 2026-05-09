@@ -14,15 +14,13 @@ go install github.com/everscribe/cli/cmd/es@latest
 # Authenticate via the device authorization flow (RFC 8628).
 es auth login
 
-# Create a project and pick it as the default so you can drop --project later.
+# List existing projcts
+es projects list
+# Or create a new project
 es projects create --name my-app
+
+# Set your config to the project of your choice so you don't have to append --project <project-uuid> for everything.
 es projects use <project-id-from-the-output-above>
-
-# Mint an ingest key (--project optional now that you've set a default).
-es keys create --name production
-
-# Tail events as they arrive.
-es events watch
 ```
 
 ## Commands
