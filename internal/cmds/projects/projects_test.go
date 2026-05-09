@@ -176,21 +176,46 @@ func TestRunUse_RejectsUnknownProject(t *testing.T) {
 	require.Empty(t, cfg.DefaultProjectID, "must not persist a typo'd project ID")
 }
 
-func TestRunCurrent_PrintsSavedDefault(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+func TestRunCurrent_PrintsIDAndName(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/projects/proj-001", r.URL.Path)
+		_ = json.NewEncoder(w).Encode(types.ProjectResponse{Project: sampleProject()})
+	})
 	require.NoError(t, config.SaveConfig(&config.CLIConfig{DefaultProjectID: "proj-001"}))
 
 	var buf bytes.Buffer
-	require.NoError(t, runCurrent(&buf))
-	require.Equal(t, "proj-001\n", buf.String())
+	require.NoError(t, runCurrent(context.Background(), &buf))
+	require.Equal(t, "proj-001 (ingest-pipeline)\n", buf.String())
 }
 
 func TestRunCurrent_NoneSet(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	var buf bytes.Buffer
-	require.NoError(t, runCurrent(&buf))
+	require.NoError(t, runCurrent(context.Background(), &buf))
 	require.Contains(t, buf.String(), "No default project set")
+}
+
+func TestRunCurrent_FallsBackWhenNotLoggedIn(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	// Save a project default but no pat.json — simulates `es auth logout`
+	// then re-running `es projects current`.
+	require.NoError(t, config.SaveConfig(&config.CLIConfig{DefaultProjectID: "proj-001"}))
+
+	var buf bytes.Buffer
+	require.NoError(t, runCurrent(context.Background(), &buf))
+	require.Equal(t, "proj-001\n", buf.String(), "should fall back to bare ID without erroring")
+}
+
+func TestRunCurrent_FallsBackOnAPIError(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "project not found", http.StatusNotFound)
+	})
+	require.NoError(t, config.SaveConfig(&config.CLIConfig{DefaultProjectID: "proj-001"}))
+
+	var buf bytes.Buffer
+	require.NoError(t, runCurrent(context.Background(), &buf))
+	require.Equal(t, "proj-001\n", buf.String(), "API failure should not fail the command")
 }
 
 func TestRunList_BadFormatRejected(t *testing.T) {
