@@ -28,9 +28,27 @@ es events watch --project <project-id>
 
 | Command | What it does |
 |---|---|
-| `es auth login [--expires-in-days N] [--no-browser]` | Opens the browser to the Everscribe UI, you authorize, the resulting PAT is persisted to `~/.config/everscribe/pat.json` (mode 0600). `--no-browser` prints the URL instead of opening it (useful over SSH). |
+| `es auth login [--no-browser]` | Runs the [RFC 8628](https://datatracker.ietf.org/doc/html/rfc8628) device authorization flow: shows a one-time code, opens the verification URL in your browser, and polls until you sign in and confirm. The resulting PAT is persisted to `~/.config/everscribe/pat.json` (mode 0600). `--no-browser` skips opening the browser (useful over SSH — copy the URL to a browser on any device). |
 | `es auth logout` | Revokes the PAT server-side and removes the local session file. Tolerant of stale tokens — local cleanup always runs. |
 | `es auth whoami [--format ...]` | Prints the user identity associated with the saved PAT. Never echoes the token itself. |
+
+The login flow looks like:
+
+```
+$ es auth login
+First copy your one-time code:
+
+    PHJK-7M3X
+
+Then open this URL in your browser (we'll try to open it for you):
+
+    https://everscribe.io/cli/verify
+
+Waiting for authorization... (press Ctrl+C to cancel)
+Logged in as alice@example.com.
+```
+
+The PAT lifetime is server-controlled (90 days by default). To mint a token with a different expiry, use the [Developer Settings](https://everscribe.io/settings/developer) page in the UI.
 
 ### Projects
 
@@ -90,7 +108,7 @@ ANSI color is auto-enabled when stdout is a TTY and disabled when [`NO_COLOR`](h
 |---|---|
 | `~/.config/everscribe/pat.json` (mode 0600) | Saved PAT, user identity, expiry. Written by `es auth login`. |
 
-The API and UI hosts are hardcoded to `https://api.everscribe.io` and `https://everscribe.io`. Two undocumented environment variables — `EVERSCRIBE_API_URL_OVERRIDE` and `EVERSCRIBE_UI_URL_OVERRIDE` — exist only for the test suite.
+The API host is hardcoded to `https://api.everscribe.io`; the verification URL for `auth login` comes back from the API itself, so the CLI never needs to know the UI host. `EVERSCRIBE_API_URL_OVERRIDE` retargets the API for local development against a self-hosted monorepo.
 
 ## Development
 
@@ -112,6 +130,8 @@ internal/types/        # wire types mirrored from the monorepo
 internal/testutil/     # shared CLI test helpers
 ```
 
-The browser-loopback login flow has its own server-side counterpart in the
-[everscribe/monorepo](https://github.com/everscribe/monorepo): `POST /v1/pats/cli`
-on the API and `/cli/auth` on the UI.
+The device authorization flow has its server-side counterpart in the
+[everscribe/monorepo](https://github.com/everscribe/monorepo):
+`POST /v1/cli/device-codes` and `POST /v1/cli/device-tokens` on the API
+(unauthenticated), `POST /v1/cli/device-codes/approve` (authenticated),
+and `/cli/verify` on the UI.
