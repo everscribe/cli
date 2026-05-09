@@ -25,15 +25,18 @@ func newListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List events in a project (most recent first)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), cmd.OutOrStdout(), project, filters, limit, all, format)
+			projectID, err := config.ResolveProjectID(project)
+			if err != nil {
+				return err
+			}
+			return runList(cmd.Context(), cmd.OutOrStdout(), projectID, filters, limit, all, format)
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", "project ID (required)")
+	cmd.Flags().StringVar(&project, "project", "", "project ID (defaults to the project saved by 'es projects use')")
 	cmd.Flags().IntVar(&limit, "limit", 50, "max events per page")
 	cmd.Flags().BoolVar(&all, "all", false, "fetch all pages instead of one")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table | json | yaml")
 	addFilterFlags(cmd, &filters)
-	_ = cmd.MarkFlagRequired("project")
 	return cmd
 }
 

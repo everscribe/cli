@@ -37,14 +37,17 @@ func newWatchCmd() *cobra.Command {
 		Use:   "watch",
 		Short: "Stream new events by polling, dedupe by event ID",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWatch(cmd.Context(), cmd.OutOrStdout(), project, filters, interval, format)
+			projectID, err := config.ResolveProjectID(project)
+			if err != nil {
+				return err
+			}
+			return runWatch(cmd.Context(), cmd.OutOrStdout(), projectID, filters, interval, format)
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", "project ID (required)")
+	cmd.Flags().StringVar(&project, "project", "", "project ID (defaults to the project saved by 'es projects use')")
 	cmd.Flags().DurationVar(&interval, "interval", 3*time.Second, "polling interval")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table | json | yaml")
 	addFilterFlags(cmd, &filters)
-	_ = cmd.MarkFlagRequired("project")
 	return cmd
 }
 
@@ -120,7 +123,11 @@ func runWatch(ctx context.Context, stdout io.Writer, projectID string, ff filter
 // output. tabwriter would re-align columns on each Flush, breaking
 // the rolling-append model — fixed widths keep rows visually
 // consistent across batches at the cost of occasional truncation.
-const watchRowFmt = "%-10s  %-6s  %-25s  %-25s  %-22s  %-12s  %-8s\n"
+//
+// Total ~144 columns: assumes a wide terminal. The ID column is
+// 36 chars (full UUID) so output matches `events list` and the user
+// can copy IDs directly into `events describe` / `events diff`.
+const watchRowFmt = "%-36s  %-6s  %-25s  %-25s  %-22s  %-12s  %-8s\n"
 
 func printWatchHeader(w io.Writer, format string) error {
 	f, err := output.ParseFormat(format, true)
@@ -147,7 +154,7 @@ func printWatchBatch(w io.Writer, format string, evs []types.Event, sty output.S
 	default:
 		for _, e := range evs {
 			fmt.Fprintf(w, watchRowFmt,
-				shortID(e.ID),
+				e.ID,
 				output.Age(e.OccurredAt),
 				truncate(e.Action, 25),
 				truncate(formatActor(unmarshalActor(e.Actor)), 25),

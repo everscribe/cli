@@ -19,12 +19,15 @@ func newListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List active API keys for a project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), cmd.OutOrStdout(), project, format)
+			projectID, err := config.ResolveProjectID(project)
+			if err != nil {
+				return err
+			}
+			return runList(cmd.Context(), cmd.OutOrStdout(), projectID, format)
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", "project ID (required)")
+	cmd.Flags().StringVar(&project, "project", "", "project ID (defaults to the project saved by 'es projects use')")
 	cmd.Flags().StringVar(&format, "format", "table", "output format: table | json | yaml")
-	_ = cmd.MarkFlagRequired("project")
 	return cmd
 }
 

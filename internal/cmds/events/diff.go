@@ -20,11 +20,14 @@ func newDiffCmd() *cobra.Command {
 		Short: "Show the before/after diff for an event with a change record",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDiff(cmd.Context(), cmd.OutOrStdout(), project, args[0])
+			projectID, err := config.ResolveProjectID(project)
+			if err != nil {
+				return err
+			}
+			return runDiff(cmd.Context(), cmd.OutOrStdout(), projectID, args[0])
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", "project ID (required)")
-	_ = cmd.MarkFlagRequired("project")
+	cmd.Flags().StringVar(&project, "project", "", "project ID (defaults to the project saved by 'es projects use')")
 	return cmd
 }
 

@@ -9,16 +9,6 @@ import (
 	"github.com/everscribe/cli/internal/types"
 )
 
-// shortID returns the first 8 characters of a UUID (or whatever ID
-// shape the API uses). Long enough to disambiguate within a typical
-// listing window; full ID via --format json/yaml.
-func shortID(id string) string {
-	if len(id) <= 8 {
-		return id
-	}
-	return id[:8]
-}
-
 // renderEventsList emits the table-or-json-or-yaml form of a list
 // response. `tableHeader` controls whether the table prints its
 // header row; watch suppresses it after the first batch.
@@ -48,7 +38,7 @@ func eventsTable(w io.Writer, evs []types.Event, header bool, sty output.Stylist
 	}
 	for _, e := range evs {
 		tbl.Row(
-			shortID(e.ID),
+			e.ID,
 			output.Age(e.OccurredAt),
 			e.Action,
 			formatActor(unmarshalActor(e.Actor)),

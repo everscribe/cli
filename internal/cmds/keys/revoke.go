@@ -20,12 +20,15 @@ func newRevokeCmd() *cobra.Command {
 		Use:   "revoke",
 		Short: "Revoke an ingest API key",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRevoke(cmd.Context(), cmd.OutOrStdout(), project, key)
+			projectID, err := config.ResolveProjectID(project)
+			if err != nil {
+				return err
+			}
+			return runRevoke(cmd.Context(), cmd.OutOrStdout(), projectID, key)
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", "project ID (required)")
+	cmd.Flags().StringVar(&project, "project", "", "project ID (defaults to the project saved by 'es projects use')")
 	cmd.Flags().StringVar(&key, "key", "", "key ID (required)")
-	_ = cmd.MarkFlagRequired("project")
 	_ = cmd.MarkFlagRequired("key")
 	return cmd
 }

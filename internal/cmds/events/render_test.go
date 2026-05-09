@@ -25,12 +25,6 @@ func sampleEvent() types.Event {
 	}
 }
 
-func TestShortID(t *testing.T) {
-	require.Equal(t, "01234567", shortID("01234567-89ab-cdef-0123-456789abcdef"))
-	require.Equal(t, "short", shortID("short"))
-	require.Equal(t, "", shortID(""))
-}
-
 func TestRenderEventsList_TableColumnsMatchUI(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, renderEventsList(&buf, "table", []types.Event{sampleEvent()}, true))
@@ -38,7 +32,10 @@ func TestRenderEventsList_TableColumnsMatchUI(t *testing.T) {
 	for _, want := range []string{"ID", "TIME", "ACTION", "ACTOR", "TARGET", "TENANT", "RESULT"} {
 		require.Containsf(t, out, want, "missing column header %q", want)
 	}
-	for _, want := range []string{"01234567", "user.login", "alice (user)", "session/s_99", "acme-co", "ok"} {
+	for _, want := range []string{
+		"01234567-89ab-cdef-0123-456789abcdef", // full UUID, not truncated
+		"user.login", "alice (user)", "session/s_99", "acme-co", "ok",
+	} {
 		require.Containsf(t, out, want, "missing cell value %q", want)
 	}
 }

@@ -22,12 +22,15 @@ func newDescribeCmd() *cobra.Command {
 		Short: "Print the full event with all nested fields decoded",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDescribe(cmd.Context(), cmd.OutOrStdout(), project, args[0], format)
+			projectID, err := config.ResolveProjectID(project)
+			if err != nil {
+				return err
+			}
+			return runDescribe(cmd.Context(), cmd.OutOrStdout(), projectID, args[0], format)
 		},
 	}
-	cmd.Flags().StringVar(&project, "project", "", "project ID (required)")
+	cmd.Flags().StringVar(&project, "project", "", "project ID (defaults to the project saved by 'es projects use')")
 	cmd.Flags().StringVar(&format, "format", "yaml", "output format: yaml | json")
-	_ = cmd.MarkFlagRequired("project")
 	return cmd
 }
 

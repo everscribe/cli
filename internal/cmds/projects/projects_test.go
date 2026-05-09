@@ -139,9 +139,58 @@ func TestNewCmd_HasAllSubcommands(t *testing.T) {
 	for _, c := range cmd.Commands() {
 		subs[c.Name()] = true
 	}
-	for _, want := range []string{"list", "get", "create", "update", "delete"} {
+	for _, want := range []string{"list", "get", "create", "update", "delete", "use", "current"} {
 		require.Truef(t, subs[want], "missing subcommand %q", want)
 	}
+}
+
+func TestRunUse_ValidatesAndSavesDefault(t *testing.T) {
+	var gotPath string
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(types.ProjectResponse{Project: sampleProject()})
+	})
+
+	var buf bytes.Buffer
+	require.NoError(t, runUse(context.Background(), &buf, "proj-001"))
+	require.Equal(t, "/v1/projects/proj-001", gotPath, "should validate via GetProject before persisting")
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+	require.Equal(t, "proj-001", cfg.DefaultProjectID)
+
+	require.Contains(t, buf.String(), "ingest-pipeline", "confirmation message should include the project name")
+}
+
+func TestRunUse_RejectsUnknownProject(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "project not found", http.StatusNotFound)
+	})
+
+	err := runUse(context.Background(), io.Discard, "no-such-id")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not found")
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+	require.Empty(t, cfg.DefaultProjectID, "must not persist a typo'd project ID")
+}
+
+func TestRunCurrent_PrintsSavedDefault(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	require.NoError(t, config.SaveConfig(&config.CLIConfig{DefaultProjectID: "proj-001"}))
+
+	var buf bytes.Buffer
+	require.NoError(t, runCurrent(&buf))
+	require.Equal(t, "proj-001\n", buf.String())
+}
+
+func TestRunCurrent_NoneSet(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	var buf bytes.Buffer
+	require.NoError(t, runCurrent(&buf))
+	require.Contains(t, buf.String(), "No default project set")
 }
 
 func TestRunList_BadFormatRejected(t *testing.T) {
