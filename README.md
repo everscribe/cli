@@ -11,15 +11,18 @@ go install github.com/everscribe/cli/cmd/es@latest
 ## Quick start
 
 ```sh
-# Authenticate via browser-loopback (mints a PAT scoped to your user).
+# Authenticate via the device authorization flow (RFC 8628).
 es auth login
 
-# Create a project, mint an ingest key for it.
+# Create a project and pick it as the default so you can drop --project later.
 es projects create --name my-app
-es keys create --project <project-id> --name production
+es projects use <project-id-from-the-output-above>
+
+# Mint an ingest key (--project optional now that you've set a default).
+es keys create --name production
 
 # Tail events as they arrive.
-es events watch --project <project-id>
+es events watch
 ```
 
 ## Commands
@@ -59,25 +62,31 @@ The PAT lifetime is server-controlled (90 days by default). To mint a token with
 | `es projects create --name <name>` | Create. |
 | `es projects update <id> --name <new-name>` | Rename. |
 | `es projects delete <id>` | Server-side soft delete. |
+| `es projects use <id>` | Set the default project so other commands can omit `--project`. Validated by `GET /v1/projects/<id>` before being saved, so a typo'd ID errors immediately. |
+| `es projects current` | Print the saved default project ID. |
 
 ### API keys
 
 Project-scoped ingest credentials (`evs_…`). Distinct from the PAT the CLI itself uses.
 
+`--project` is optional once `es projects use <id>` has been run; it falls back to the saved default.
+
 | Command | What it does |
 |---|---|
-| `es keys list --project <id>` | Active keys for a project. |
-| `es keys create --project <id> --name <key-name>` | Mint a new key. The plaintext is shown **once** — copy it before closing the terminal. |
-| `es keys revoke --project <id> --key <key-id>` | Revoke a key. |
+| `es keys list [--project <id>]` | Active keys for a project. |
+| `es keys create [--project <id>] --name <key-name>` | Mint a new key. The plaintext is shown **once** — copy it before closing the terminal. |
+| `es keys revoke [--project <id>] --key <key-id>` | Revoke a key. |
 
 ### Events
 
+`--project` is optional once `es projects use <id>` has been run.
+
 | Command | What it does |
 |---|---|
-| `es events list --project <id> [filters] [--limit N] [--all]` | Page through events newest-first. With `--all`, follows `next_cursor` through every page. |
-| `es events watch --project <id> [filters] [--interval 3s]` | Polls and prints new events as they arrive, deduped by event ID. |
-| `es events describe <event-id> --project <id> [--format yaml\|json]` | Full event with nested `actor` / `target` / `metadata` / `origin` / `result` / `change` decoded inline. YAML default; no table form. |
-| `es events diff <event-id> --project <id>` | Unified `+`/`-` diff of `change.before` vs `change.after`. Errors clearly when the event has no change record (most events don't). |
+| `es events list [--project <id>] [filters] [--limit N] [--all]` | Page through events newest-first. With `--all`, follows `next_cursor` through every page. |
+| `es events watch [--project <id>] [filters] [--interval 3s]` | Polls and prints new events as they arrive, deduped by event ID. |
+| `es events describe <event-id> [--project <id>] [--format yaml\|json]` | Full event with nested `actor` / `target` / `metadata` / `origin` / `result` / `change` decoded inline. YAML default; no table form. |
+| `es events diff <event-id> [--project <id>]` | Unified `+`/`-` diff of `change.before` vs `change.after`. Errors clearly when the event has no change record (most events don't). |
 
 Shared filter flags on `list` and `watch`:
 `--since`, `--before`, `--action`, `--actor`, `--actor-type`, `--target-type`, `--tenant`.
@@ -104,9 +113,12 @@ ANSI color is auto-enabled when stdout is a TTY and disabled when [`NO_COLOR`](h
 
 ## Configuration
 
-| Path | Contents |
-|---|---|
-| `~/.config/everscribe/pat.json` (mode 0600) | Saved PAT, user identity, expiry. Written by `es auth login`. |
+| Path | Contents | Written by |
+|---|---|---|
+| `~/.config/everscribe/pat.json` (mode 0600) | Saved PAT, user identity, expiry. | `es auth login` |
+| `~/.config/everscribe/config.json` (mode 0600) | Non-sensitive preferences (currently just `default_project_id`). | `es projects use` |
+
+The two files are kept separate so `es auth logout` doesn't clobber preferences like the saved default project — log back in and `es events list` keeps working without re-typing the project ID.
 
 The API host is hardcoded to `https://api.everscribe.io`; the verification URL for `auth login` comes back from the API itself, so the CLI never needs to know the UI host. `EVERSCRIBE_API_URL_OVERRIDE` retargets the API for local development against a self-hosted monorepo.
 
@@ -124,7 +136,7 @@ Layout:
 cmd/es/                # CLI entrypoint
 internal/client/       # HTTP client: bearer auth, error envelope, resource methods
 internal/cmds/         # cobra commands (auth, projects, keys, events)
-internal/config/       # PAT persistence (~/.config/everscribe/pat.json)
+internal/config/       # pat.json + config.json persistence, ResolveProjectID helper
 internal/output/       # table / JSON / YAML renderers, color, age formatter
 internal/types/        # wire types mirrored from the monorepo
 internal/testutil/     # shared CLI test helpers
