@@ -62,7 +62,9 @@ func runList(ctx context.Context, stdout, stderr io.Writer, projectID string, ff
 
 	switch {
 	case prompt != "":
+		sp := output.StartSpinner(stderr, "Translating prompt...")
 		nlp, err := c.GenerateNLPFilters(ctx, projectID, prompt)
+		sp.Stop()
 		if err != nil {
 			return fmt.Errorf("translate prompt: %w", err)
 		}
