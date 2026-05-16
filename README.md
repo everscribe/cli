@@ -81,13 +81,34 @@ Project-scoped ingest credentials (`evs_…`). Distinct from the PAT the CLI its
 
 | Command | What it does |
 |---|---|
-| `es events list [--project <id>] [filters] [--limit N] [--all]` | Page through events newest-first. With `--all`, follows `next_cursor` through every page. |
+| `es events list [--project <id>] [filters\|--prompt\|--query] [--limit N] [--all]` | Page through events newest-first. With `--all`, follows `next_cursor` through every page. See [Querying events](#querying-events) for `--prompt` and `--query`. |
 | `es events watch [--project <id>] [filters] [--interval 3s]` | Polls and prints new events as they arrive, deduped by event ID. |
 | `es events describe <event-id> [--project <id>] [--format yaml\|json]` | Full event with nested `actor` / `target` / `metadata` / `origin` / `result` / `change` decoded inline. YAML default; no table form. |
 | `es events diff <event-id> [--project <id>]` | Unified `+`/`-` diff of `change.before` vs `change.after`. Errors clearly when the event has no change record (most events don't). |
 
 Shared filter flags on `list` and `watch`:
 `--since`, `--before`, `--action`, `--actor`, `--actor-type`, `--target-type`, `--tenant`.
+
+#### Querying events
+
+`es events list` accepts two alternative ways to filter that bypass the structured flags above:
+
+| Flag | What it does |
+|---|---|
+| `--prompt "<natural language>"` | Sends the prompt to the API's NLP endpoint, which translates it into the events filter DSL, then runs the list with that DSL. The translated DSL is echoed to stderr in table mode so you can see what the model produced (and learn the syntax). A spinner shows on stderr during translation when stderr is a TTY; piped/CI usage stays silent. |
+| `--query "<dsl>"` | Sends a hand-written filter DSL expression directly to the API. Use this when you already know the syntax or when you've copied a DSL string from the `--prompt` output. |
+
+`--prompt` and `--query` are mutually exclusive with each other and with the structured filter flags — combining them is rejected client-side, since mixing a translated NL prompt with hand-written filters makes the resulting query opaque.
+
+```sh
+# Natural language — translated server-side, then executed.
+es events list --prompt "failed logins from the last 24 hours"
+
+# Hand-written DSL — same shape the model produces.
+es events list --query 'action="user.login" and result.status="failure"'
+```
+
+If the model can't translate a prompt into any DSL, the command errors with the model's explanation rather than silently returning every event in the project.
 
 ## Output formats
 
