@@ -61,7 +61,7 @@ func TestRunList_HappyPath(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runList(context.Background(), &buf, "proj-001", filterFlags{}, 50, false, "table"))
+	require.NoError(t, runList(context.Background(), &buf, io.Discard, "proj-001", filterFlags{}, "", "", 50, false, "table"))
 
 	require.Equal(t, "/v1/projects/proj-001/events", gotPath)
 	require.Contains(t, gotQuery, "limit=50")
@@ -83,7 +83,7 @@ func TestRunList_FiltersAreSentAsQueryParams(t *testing.T) {
 		targetType: "session",
 		tenant:     "acme-co",
 	}
-	require.NoError(t, runList(context.Background(), io.Discard, "proj-001", ff, 25, false, "table"))
+	require.NoError(t, runList(context.Background(), io.Discard, io.Discard, "proj-001", ff, "", "", 25, false, "table"))
 
 	for _, want := range []string{"action=user.login", "actor=u_1", "actor_type=user", "target_type=session", "tenant_id=acme-co", "limit=25"} {
 		require.Containsf(t, gotQuery, want, "missing query param %q in %q", want, gotQuery)
@@ -103,7 +103,7 @@ func TestRunList_AllPaginatesUntilNoCursor(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runList(context.Background(), &buf, "proj-001", filterFlags{}, 1, true, "json"))
+	require.NoError(t, runList(context.Background(), &buf, io.Discard, "proj-001", filterFlags{}, "", "", 1, true, "json"))
 
 	require.Equal(t, 3, calls, "should follow cursor until empty")
 	// JSON output should be a single bare array containing all 3 events.
@@ -121,8 +121,8 @@ func TestRunList_PaginationHintInTableOnlyWithoutAll(t *testing.T) {
 	})
 
 	var tableBuf, jsonBuf bytes.Buffer
-	require.NoError(t, runList(context.Background(), &tableBuf, "proj-001", filterFlags{}, 50, false, "table"))
-	require.NoError(t, runList(context.Background(), &jsonBuf, "proj-001", filterFlags{}, 50, false, "json"))
+	require.NoError(t, runList(context.Background(), &tableBuf, io.Discard, "proj-001", filterFlags{}, "", "", 50, false, "table"))
+	require.NoError(t, runList(context.Background(), &jsonBuf, io.Discard, "proj-001", filterFlags{}, "", "", 50, false, "json"))
 
 	require.Contains(t, tableBuf.String(), "More events available", "table should hint at more pages")
 	require.NotContains(t, jsonBuf.String(), "More events available", "json must not pollute machine output with hints")
@@ -133,14 +133,120 @@ func TestRunList_BadTimeFlagRejected(t *testing.T) {
 		t.Errorf("API should not be called when --since is invalid")
 	})
 
-	err := runList(context.Background(), io.Discard, "proj-001", filterFlags{since: "not-a-time"}, 50, false, "table")
+	err := runList(context.Background(), io.Discard, io.Discard, "proj-001", filterFlags{since: "not-a-time"}, "", "", 50, false, "table")
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "--since")
+}
+
+func TestRunList_QueryFlagSendsDSL(t *testing.T) {
+	var gotPath, gotQuery string
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
+		_ = json.NewEncoder(w).Encode(types.ListEventsResponse{})
+	})
+
+	require.NoError(t, runList(context.Background(), io.Discard, io.Discard, "proj-001", filterFlags{}, "", `action="user.login"`, 50, false, "table"))
+	require.Equal(t, "/v1/projects/proj-001/events", gotPath)
+	require.Contains(t, gotQuery, `q=action%3D%22user.login%22`, "raw DSL should be passed through as ?q=")
+}
+
+func TestRunList_PromptTranslatesThenLists(t *testing.T) {
+	var nlpBody []byte
+	var listQuery string
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/projects/proj-001/events/nlp":
+			require.Equal(t, http.MethodPost, r.Method)
+			nlpBody, _ = io.ReadAll(r.Body)
+			_ = json.NewEncoder(w).Encode(types.GenerateNLPFiltersResponse{
+				DSL:         `action="user.login"`,
+				Explanation: "filter on login events",
+			})
+		case "/v1/projects/proj-001/events":
+			require.Equal(t, http.MethodGet, r.Method)
+			listQuery = r.URL.RawQuery
+			_ = json.NewEncoder(w).Encode(types.ListEventsResponse{
+				Events: []types.Event{newSampleEvent("evt-1", "user.login")},
+			})
+		default:
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+	})
+
+	var stdout, stderr bytes.Buffer
+	require.NoError(t, runList(context.Background(), &stdout, &stderr, "proj-001", filterFlags{}, "show me logins", "", 50, false, "table"))
+
+	require.Contains(t, string(nlpBody), `"q":"show me logins"`, "NLP body must contain the prompt")
+	require.Contains(t, listQuery, `q=action%3D%22user.login%22`, "translated DSL should reach list endpoint")
+	require.Contains(t, stdout.String(), "user.login")
+	require.Contains(t, stderr.String(), `→ translated to DSL: action="user.login"`, "table mode should surface the translation")
+}
+
+func TestRunList_PromptTranslationHiddenForJSON(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/projects/proj-001/events/nlp" {
+			_ = json.NewEncoder(w).Encode(types.GenerateNLPFiltersResponse{DSL: `action="x.y"`})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(types.ListEventsResponse{})
+	})
+
+	var stderr bytes.Buffer
+	require.NoError(t, runList(context.Background(), io.Discard, &stderr, "proj-001", filterFlags{}, "anything", "", 50, false, "json"))
+	require.Empty(t, stderr.String(), "json mode must not pollute stderr with the translation hint")
+}
+
+func TestRunList_PromptEmptyDSLIsAnError(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/projects/proj-001/events/nlp", r.URL.Path, "list endpoint must not be hit when translation fails")
+		_ = json.NewEncoder(w).Encode(types.GenerateNLPFiltersResponse{
+			Explanation: "model could not parse intent",
+			Unsupported: []string{"vague language"},
+		})
+	})
+
+	err := runList(context.Background(), io.Discard, io.Discard, "proj-001", filterFlags{}, "do the thing", "", 50, false, "table")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "could not translate prompt")
+	require.Contains(t, err.Error(), "model could not parse intent")
+	require.Contains(t, err.Error(), "vague language")
+}
+
+func TestRunList_PromptAndQueryAreMutuallyExclusive(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("API should not be called when --prompt and --query are both set")
+	})
+
+	err := runList(context.Background(), io.Discard, io.Discard, "proj-001", filterFlags{}, "p", "q", 50, false, "table")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mutually exclusive")
+}
+
+func TestRunList_PromptRejectsStructuredFilters(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("API should not be called when --prompt is combined with structured filters")
+	})
+
+	err := runList(context.Background(), io.Discard, io.Discard, "proj-001", filterFlags{action: "user.login"}, "show me logins", "", 50, false, "table")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--prompt")
+	require.Contains(t, err.Error(), "--action")
+}
+
+func TestRunList_QueryRejectsStructuredFilters(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("API should not be called when --query is combined with structured filters")
+	})
+
+	err := runList(context.Background(), io.Discard, io.Discard, "proj-001", filterFlags{since: "1h"}, "", `action="x"`, 50, false, "table")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--query")
 	require.Contains(t, err.Error(), "--since")
 }
 
 func TestRunList_NotLoggedIn(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	err := runList(context.Background(), io.Discard, "proj-001", filterFlags{}, 50, false, "table")
+	err := runList(context.Background(), io.Discard, io.Discard, "proj-001", filterFlags{}, "", "", 50, false, "table")
 	require.ErrorIs(t, err, config.ErrNotLoggedIn)
 }
 
