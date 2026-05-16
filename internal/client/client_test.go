@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -32,7 +31,7 @@ func TestDoSendsBearerAndDecodes(t *testing.T) {
 	c := New("pat_secret", WithBaseURL(srv.URL))
 	var out response
 	q := url.Values{"limit": {"5"}}
-	require.NoError(t, c.Do(context.Background(), http.MethodGet, "/v1/projects", q, nil, &out))
+	require.NoError(t, c.Do(t.Context(), http.MethodGet, "/v1/projects", q, nil, &out))
 
 	require.Equal(t, "Bearer pat_secret", gotAuth)
 	require.Equal(t, http.MethodGet, gotMethod)
@@ -54,7 +53,7 @@ func TestDoSendsJSONBody(t *testing.T) {
 
 	c := New("pat_x", WithBaseURL(srv.URL))
 	in := map[string]string{"name": "ingest-pipeline"}
-	require.NoError(t, c.Do(context.Background(), http.MethodPost, "/v1/projects", nil, in, nil))
+	require.NoError(t, c.Do(t.Context(), http.MethodPost, "/v1/projects", nil, in, nil))
 	require.Equal(t, "application/json", gotContentType)
 	require.Contains(t, gotBody, `"name":"ingest-pipeline"`)
 }
@@ -68,7 +67,7 @@ func TestDoNoTokenOmitsAuthHeader(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := New("", WithBaseURL(srv.URL))
-	require.NoError(t, c.Do(context.Background(), http.MethodGet, "/health", nil, nil, nil))
+	require.NoError(t, c.Do(t.Context(), http.MethodGet, "/health", nil, nil, nil))
 	require.Empty(t, gotAuth)
 }
 
@@ -79,7 +78,7 @@ func TestDoPlaintextErrorBody(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := New("pat_x", WithBaseURL(srv.URL))
-	err := c.Do(context.Background(), http.MethodPost, "/v1/projects", nil, map[string]string{"name": "x"}, nil)
+	err := c.Do(t.Context(), http.MethodPost, "/v1/projects", nil, map[string]string{"name": "x"}, nil)
 
 	var apiErr *APIError
 	require.ErrorAs(t, err, &apiErr)
@@ -96,7 +95,7 @@ func TestDoJSONErrorEnvelope(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := New("pat_x", WithBaseURL(srv.URL))
-	err := c.Do(context.Background(), http.MethodPost, "/v1/projects", nil, map[string]string{}, nil)
+	err := c.Do(t.Context(), http.MethodPost, "/v1/projects", nil, map[string]string{}, nil)
 
 	var apiErr *APIError
 	require.ErrorAs(t, err, &apiErr)

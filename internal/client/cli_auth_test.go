@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +27,7 @@ func TestIssueDeviceCode_DecodesResponse(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := New("", WithBaseURL(srv.URL))
-	resp, err := c.IssueDeviceCode(context.Background())
+	resp, err := c.IssueDeviceCode(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, "ABCD-EFGH", resp.UserCode)
 	require.Equal(t, "long-device-code", resp.DeviceCode)
@@ -51,65 +50,46 @@ func TestExchangeDeviceCode_Success(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := New("", WithBaseURL(srv.URL))
-	resp, err := c.ExchangeDeviceCode(context.Background(), "long-device-code")
+	resp, err := c.ExchangeDeviceCode(t.Context(), "long-device-code")
 	require.NoError(t, err)
 	require.Equal(t, "pat_secret", resp.Plaintext)
 	require.Equal(t, "alice@example.com", resp.UserEmail)
 }
 
-func TestExchangeDeviceCode_PendingReturnsTypedError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":"authorization_pending"}`))
-	}))
-	t.Cleanup(srv.Close)
+// TestExchangeDeviceCode_OAuthErrorMapping verifies the 400-with-JSON-error
+// branch: each OAuth error code the IETF device-flow spec defines must
+// be classified by the right Is*(err) helper, since the login loop
+// branches on those classifications.
+func TestExchangeDeviceCode_OAuthErrorMapping(t *testing.T) {
+	cases := []struct {
+		name              string
+		oauthError        string
+		wantPending       bool
+		wantExpired       bool
+		wantAccessDenied  bool
+	}{
+		{name: "authorization_pending", oauthError: "authorization_pending", wantPending: true},
+		{name: "slow_down also pending", oauthError: "slow_down", wantPending: true},
+		{name: "expired_token", oauthError: "expired_token", wantExpired: true},
+		{name: "access_denied", oauthError: "access_denied", wantAccessDenied: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":"` + tc.oauthError + `"}`))
+			}))
+			t.Cleanup(srv.Close)
 
-	c := New("", WithBaseURL(srv.URL))
-	_, err := c.ExchangeDeviceCode(context.Background(), "long-device-code")
-	require.Error(t, err)
-	require.True(t, IsAuthorizationPending(err), "want IsAuthorizationPending, got %v", err)
-}
-
-func TestExchangeDeviceCode_SlowDownAlsoCountsAsPending(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":"slow_down"}`))
-	}))
-	t.Cleanup(srv.Close)
-
-	c := New("", WithBaseURL(srv.URL))
-	_, err := c.ExchangeDeviceCode(context.Background(), "x")
-	require.Error(t, err)
-	require.True(t, IsAuthorizationPending(err), "slow_down should trigger keep-polling")
-}
-
-func TestExchangeDeviceCode_ExpiredReturnsTypedError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":"expired_token"}`))
-	}))
-	t.Cleanup(srv.Close)
-
-	c := New("", WithBaseURL(srv.URL))
-	_, err := c.ExchangeDeviceCode(context.Background(), "x")
-	require.True(t, IsExpiredToken(err))
-	require.False(t, IsAuthorizationPending(err))
-}
-
-func TestExchangeDeviceCode_AccessDeniedReturnsTypedError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":"access_denied"}`))
-	}))
-	t.Cleanup(srv.Close)
-
-	c := New("", WithBaseURL(srv.URL))
-	_, err := c.ExchangeDeviceCode(context.Background(), "x")
-	require.True(t, IsAccessDenied(err))
+			c := New("", WithBaseURL(srv.URL))
+			_, err := c.ExchangeDeviceCode(t.Context(), "x")
+			require.Error(t, err)
+			require.Equal(t, tc.wantPending, IsAuthorizationPending(err), "IsAuthorizationPending mismatch")
+			require.Equal(t, tc.wantExpired, IsExpiredToken(err), "IsExpiredToken mismatch")
+			require.Equal(t, tc.wantAccessDenied, IsAccessDenied(err), "IsAccessDenied mismatch")
+		})
+	}
 }
 
 func TestExchangeDeviceCode_500FallsThroughToAPIError(t *testing.T) {
@@ -119,7 +99,7 @@ func TestExchangeDeviceCode_500FallsThroughToAPIError(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := New("", WithBaseURL(srv.URL))
-	_, err := c.ExchangeDeviceCode(context.Background(), "x")
+	_, err := c.ExchangeDeviceCode(t.Context(), "x")
 	require.Error(t, err)
 	require.False(t, IsAuthorizationPending(err))
 	require.False(t, IsExpiredToken(err))

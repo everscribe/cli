@@ -57,6 +57,6 @@ func TestResolveProjectID_NeitherSet(t *testing.T) {
 
 	_, err := ResolveProjectID("")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no project specified")
-	require.Contains(t, err.Error(), "es projects use")
+	require.ErrorContains(t, err, "no project specified")
+	require.ErrorContains(t, err, "es projects use")
 }

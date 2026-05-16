@@ -2,7 +2,6 @@ package keys
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -34,7 +33,7 @@ func TestRunList_HappyPath(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runList(context.Background(), &buf, "proj-001", "table"))
+	require.NoError(t, runList(t.Context(), &buf, "proj-001", "table"))
 
 	require.Equal(t, http.MethodGet, gotMethod)
 	require.Equal(t, "/v1/projects/proj-001/keys", gotPath)
@@ -44,7 +43,7 @@ func TestRunList_HappyPath(t *testing.T) {
 
 func TestRunList_NotLoggedIn(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	err := runList(context.Background(), io.Discard, "proj-001", "table")
+	err := runList(t.Context(), io.Discard, "proj-001", "table")
 	require.ErrorIs(t, err, config.ErrNotLoggedIn)
 }
 
@@ -62,7 +61,7 @@ func TestRunCreate_SendsBodyAndShowsPlaintext(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runCreate(context.Background(), &buf, "proj-001", "production", "table"))
+	require.NoError(t, runCreate(t.Context(), &buf, "proj-001", "production", "table"))
 
 	require.Equal(t, http.MethodPost, gotMethod)
 	require.Equal(t, "/v1/projects/proj-001/keys", gotPath)
@@ -83,7 +82,7 @@ func TestRunRevoke_SendsDelete(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runRevoke(context.Background(), &buf, "proj-001", "key-001"))
+	require.NoError(t, runRevoke(t.Context(), &buf, "proj-001", "key-001"))
 
 	require.Equal(t, http.MethodDelete, gotMethod)
 	require.Equal(t, "/v1/projects/proj-001/keys/key-001", gotPath)
@@ -95,9 +94,9 @@ func TestRunCreate_PropagatesAPIError(t *testing.T) {
 		http.Error(w, "key name already taken", http.StatusConflict)
 	})
 
-	err := runCreate(context.Background(), io.Discard, "proj-001", "duplicate", "table")
+	err := runCreate(t.Context(), io.Discard, "proj-001", "duplicate", "table")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "already taken")
+	require.ErrorContains(t, err, "already taken")
 }
 
 func TestNewCmd_HasAllSubcommands(t *testing.T) {

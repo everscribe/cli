@@ -2,7 +2,6 @@ package projects
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -34,7 +33,7 @@ func TestRunList_HappyPath(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runList(context.Background(), &buf, "table"))
+	require.NoError(t, runList(t.Context(), &buf, "table"))
 
 	require.Equal(t, http.MethodGet, gotMethod)
 	require.Equal(t, "/v1/projects", gotPath)
@@ -44,7 +43,7 @@ func TestRunList_HappyPath(t *testing.T) {
 
 func TestRunList_NotLoggedIn(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	err := runList(context.Background(), io.Discard, "table")
+	err := runList(t.Context(), io.Discard, "table")
 	require.ErrorIs(t, err, config.ErrNotLoggedIn)
 }
 
@@ -56,7 +55,7 @@ func TestRunGet_HappyPath(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runGet(context.Background(), &buf, "proj-001", "yaml"))
+	require.NoError(t, runGet(t.Context(), &buf, "proj-001", "yaml"))
 
 	require.Equal(t, "/v1/projects/proj-001", gotPath)
 	require.Contains(t, buf.String(), "name: ingest-pipeline")
@@ -73,7 +72,7 @@ func TestRunCreate_SendsBodyAndPrintsResult(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runCreate(context.Background(), &buf, "ingest-pipeline", "json"))
+	require.NoError(t, runCreate(t.Context(), &buf, "ingest-pipeline", "json"))
 
 	require.Equal(t, http.MethodPost, gotMethod)
 	require.Equal(t, "/v1/projects", gotPath)
@@ -94,7 +93,7 @@ func TestRunUpdate_SendsPutAndBody(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runUpdate(context.Background(), &buf, "proj-001", "renamed", "table"))
+	require.NoError(t, runUpdate(t.Context(), &buf, "proj-001", "renamed", "table"))
 
 	require.Equal(t, http.MethodPut, gotMethod)
 	require.Equal(t, "/v1/projects/proj-001", gotPath)
@@ -111,7 +110,7 @@ func TestRunDelete_SendsDelete(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runDelete(context.Background(), &buf, "proj-001"))
+	require.NoError(t, runDelete(t.Context(), &buf, "proj-001"))
 
 	require.Equal(t, http.MethodDelete, gotMethod)
 	require.Equal(t, "/v1/projects/proj-001", gotPath)
@@ -126,9 +125,9 @@ func TestRunCreate_PropagatesAPIError(t *testing.T) {
 		http.Error(w, "project name already taken", http.StatusConflict)
 	})
 
-	err := runCreate(context.Background(), io.Discard, "duplicate", "table")
+	err := runCreate(t.Context(), io.Discard, "duplicate", "table")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "already taken")
+	require.ErrorContains(t, err, "already taken")
 }
 
 // Sanity that the cobra command tree wires everything up — exercising
@@ -152,7 +151,7 @@ func TestRunUse_ValidatesAndSavesDefault(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runUse(context.Background(), &buf, "proj-001"))
+	require.NoError(t, runUse(t.Context(), &buf, "proj-001"))
 	require.Equal(t, "/v1/projects/proj-001", gotPath, "should validate via GetProject before persisting")
 
 	cfg, err := config.LoadConfig()
@@ -167,9 +166,9 @@ func TestRunUse_RejectsUnknownProject(t *testing.T) {
 		http.Error(w, "project not found", http.StatusNotFound)
 	})
 
-	err := runUse(context.Background(), io.Discard, "no-such-id")
+	err := runUse(t.Context(), io.Discard, "no-such-id")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "not found")
+	require.ErrorContains(t, err, "not found")
 
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
@@ -184,7 +183,7 @@ func TestRunCurrent_PrintsIDAndName(t *testing.T) {
 	require.NoError(t, config.SaveConfig(&config.CLIConfig{DefaultProjectID: "proj-001"}))
 
 	var buf bytes.Buffer
-	require.NoError(t, runCurrent(context.Background(), &buf))
+	require.NoError(t, runCurrent(t.Context(), &buf))
 	require.Equal(t, "proj-001 (ingest-pipeline)\n", buf.String())
 }
 
@@ -192,7 +191,7 @@ func TestRunCurrent_NoneSet(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	var buf bytes.Buffer
-	require.NoError(t, runCurrent(context.Background(), &buf))
+	require.NoError(t, runCurrent(t.Context(), &buf))
 	require.Contains(t, buf.String(), "No default project set")
 }
 
@@ -203,7 +202,7 @@ func TestRunCurrent_FallsBackWhenNotLoggedIn(t *testing.T) {
 	require.NoError(t, config.SaveConfig(&config.CLIConfig{DefaultProjectID: "proj-001"}))
 
 	var buf bytes.Buffer
-	require.NoError(t, runCurrent(context.Background(), &buf))
+	require.NoError(t, runCurrent(t.Context(), &buf))
 	require.Equal(t, "proj-001\n", buf.String(), "should fall back to bare ID without erroring")
 }
 
@@ -214,7 +213,7 @@ func TestRunCurrent_FallsBackOnAPIError(t *testing.T) {
 	require.NoError(t, config.SaveConfig(&config.CLIConfig{DefaultProjectID: "proj-001"}))
 
 	var buf bytes.Buffer
-	require.NoError(t, runCurrent(context.Background(), &buf))
+	require.NoError(t, runCurrent(t.Context(), &buf))
 	require.Equal(t, "proj-001\n", buf.String(), "API failure should not fail the command")
 }
 
@@ -223,7 +222,7 @@ func TestRunList_BadFormatRejected(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(types.ListProjectsResponse{})
 	})
 
-	err := runList(context.Background(), io.Discard, "xml")
+	err := runList(t.Context(), io.Discard, "xml")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid")
+	require.ErrorContains(t, err, "invalid")
 }

@@ -28,7 +28,7 @@ func TestParseFormat(t *testing.T) {
 			got, err := ParseFormat(tc.in, tc.allowTable)
 			if tc.wantErr != "" {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tc.wantErr)
+				require.ErrorContains(t, err, tc.wantErr)
 				return
 			}
 			require.NoError(t, err)

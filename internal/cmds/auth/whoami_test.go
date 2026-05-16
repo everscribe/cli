@@ -24,35 +24,42 @@ func savePAT(t *testing.T) *config.PAT {
 	return pat
 }
 
-func TestRunWhoami_Table(t *testing.T) {
-	savePAT(t)
-	var buf bytes.Buffer
-	require.NoError(t, runWhoami(&buf, "table"))
-	out := buf.String()
-	for _, want := range []string{"EMAIL", "USER ID", "PAT ID", "EXPIRES", "alice@example.com", "u_1", "pat-uuid", "2026-08-07"} {
-		require.Containsf(t, out, want, "table output missing %q", want)
+// TestRunWhoami_FormatOutputs covers the three render paths in one
+// place. Each format has different column/key syntax, but all three
+// must (a) include the user metadata and (b) never leak the PAT.
+func TestRunWhoami_FormatOutputs(t *testing.T) {
+	cases := []struct {
+		name    string
+		format  string
+		wantSub []string
+	}{
+		{
+			name:    "table",
+			format:  "table",
+			wantSub: []string{"EMAIL", "USER ID", "PAT ID", "EXPIRES", "alice@example.com", "u_1", "pat-uuid", "2026-08-07"},
+		},
+		{
+			name:    "json",
+			format:  "json",
+			wantSub: []string{`"email": "alice@example.com"`, `"user_id": "u_1"`, `"pat_id": "pat-uuid"`},
+		},
+		{
+			name:    "yaml",
+			format:  "yaml",
+			wantSub: []string{"email: alice@example.com", "user_id: u_1", "pat_id: pat-uuid"},
+		},
 	}
-	require.NotContains(t, out, "pat_secret", "whoami must not leak token")
-}
-
-func TestRunWhoami_JSON(t *testing.T) {
-	savePAT(t)
-	var buf bytes.Buffer
-	require.NoError(t, runWhoami(&buf, "json"))
-	out := buf.String()
-	for _, want := range []string{`"email": "alice@example.com"`, `"user_id": "u_1"`, `"pat_id": "pat-uuid"`} {
-		require.Containsf(t, out, want, "JSON output missing %q", want)
-	}
-	require.NotContains(t, out, "pat_secret", "whoami must not leak token")
-}
-
-func TestRunWhoami_YAML(t *testing.T) {
-	savePAT(t)
-	var buf bytes.Buffer
-	require.NoError(t, runWhoami(&buf, "yaml"))
-	out := buf.String()
-	for _, want := range []string{"email: alice@example.com", "user_id: u_1", "pat_id: pat-uuid"} {
-		require.Containsf(t, out, want, "YAML output missing %q", want)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			savePAT(t)
+			var buf bytes.Buffer
+			require.NoError(t, runWhoami(&buf, tc.format))
+			out := buf.String()
+			for _, want := range tc.wantSub {
+				require.Containsf(t, out, want, "%s output missing %q", tc.format, want)
+			}
+			require.NotContains(t, out, "pat_secret", "whoami must not leak token")
+		})
 	}
 }
 
@@ -66,5 +73,5 @@ func TestRunWhoami_RejectsBadFormat(t *testing.T) {
 	savePAT(t)
 	err := runWhoami(&bytes.Buffer{}, "xml")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid")
+	require.ErrorContains(t, err, "invalid")
 }

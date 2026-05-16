@@ -81,7 +81,7 @@ func TestRunLogin_HappyPath(t *testing.T) {
 	captured := stubBrowser(t)
 
 	var stdout bytes.Buffer
-	require.NoError(t, runLogin(context.Background(), &stdout, false))
+	require.NoError(t, runLogin(t.Context(), &stdout, false))
 
 	require.Equal(t, "https://everscribe.io/cli/verify?user_code=ABCD-EFGH", *captured)
 
@@ -111,7 +111,7 @@ func TestRunLogin_NoBrowserSkipsOpener(t *testing.T) {
 	}
 
 	var stdout bytes.Buffer
-	require.NoError(t, runLogin(context.Background(), &stdout, true))
+	require.NoError(t, runLogin(t.Context(), &stdout, true))
 
 	require.False(t, called, "browser opener must not run with --no-browser")
 }
@@ -122,7 +122,7 @@ func TestRunLogin_PollsUntilApproved(t *testing.T) {
 	t.Setenv("EVERSCRIBE_API_URL_OVERRIDE", srv.URL)
 
 	stubBrowser(t)
-	require.NoError(t, runLogin(context.Background(), &bytes.Buffer{}, true))
+	require.NoError(t, runLogin(t.Context(), &bytes.Buffer{}, true))
 
 	pat, err := config.Load()
 	require.NoError(t, err)
@@ -150,9 +150,9 @@ func TestRunLogin_ExpiredTokenErrors(t *testing.T) {
 	t.Setenv("EVERSCRIBE_API_URL_OVERRIDE", srv.URL)
 
 	stubBrowser(t)
-	err := runLogin(context.Background(), &bytes.Buffer{}, true)
+	err := runLogin(t.Context(), &bytes.Buffer{}, true)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "expired")
+	require.ErrorContains(t, err, "expired")
 }
 
 func TestRunLogin_ContextCancelExits(t *testing.T) {
@@ -161,7 +161,7 @@ func TestRunLogin_ContextCancelExits(t *testing.T) {
 	t.Setenv("EVERSCRIBE_API_URL_OVERRIDE", srv.URL)
 
 	stubBrowser(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		cancel()
@@ -179,7 +179,7 @@ func TestRunLogin_IssueErrorPropagates(t *testing.T) {
 	t.Setenv("EVERSCRIBE_API_URL_OVERRIDE", srv.URL)
 
 	stubBrowser(t)
-	err := runLogin(context.Background(), &bytes.Buffer{}, true)
+	err := runLogin(t.Context(), &bytes.Buffer{}, true)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "device code"),
 		"want context about issue step, got %v", err)
