@@ -187,6 +187,85 @@ func TestRunDownload_EnvDirOverride(t *testing.T) {
 	require.Equal(t, body, string(got))
 }
 
+// --- describe ---
+
+func TestRunDescribe_DefaultMarkdown(t *testing.T) {
+	const body = "---\nname: everscribe-setup\n---\n# Setup\n\nDo the thing.\n"
+	newMockCDN(t).withSetupSkill(body)
+
+	var buf bytes.Buffer
+	require.NoError(t, runDescribe(t.Context(), &buf, "setup", "markdown"))
+
+	out := buf.String()
+	// Metadata block.
+	require.Contains(t, out, "Name:")
+	require.Contains(t, out, "setup")
+	require.Contains(t, out, "Version:")
+	require.Contains(t, out, "1.0.0")
+	require.Contains(t, out, "Skill dir:")
+	require.Contains(t, out, "everscribe-setup")
+	// Separator + raw body.
+	require.Contains(t, out, "\n---\n")
+	require.Contains(t, out, "# Setup")
+	require.Contains(t, out, "Do the thing.")
+}
+
+func TestRunDescribe_DefaultEmptyFormatIsMarkdown(t *testing.T) {
+	const body = "# Setup\n"
+	newMockCDN(t).withSetupSkill(body)
+
+	var buf bytes.Buffer
+	require.NoError(t, runDescribe(t.Context(), &buf, "setup", ""))
+	require.Contains(t, buf.String(), "Name:")
+	require.Contains(t, buf.String(), "# Setup")
+}
+
+func TestRunDescribe_JSONIncludesBody(t *testing.T) {
+	const body = "# Setup\n\nbody-content\n"
+	newMockCDN(t).withSetupSkill(body)
+
+	var buf bytes.Buffer
+	require.NoError(t, runDescribe(t.Context(), &buf, "setup", "json"))
+
+	var got struct {
+		types.Skill
+		Body string `json:"body"`
+	}
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &got))
+	require.Equal(t, "setup", got.Name)
+	require.Equal(t, body, got.Body)
+}
+
+func TestRunDescribe_YAMLIncludesBody(t *testing.T) {
+	const body = "# Setup\n"
+	newMockCDN(t).withSetupSkill(body)
+
+	var buf bytes.Buffer
+	require.NoError(t, runDescribe(t.Context(), &buf, "setup", "yaml"))
+
+	out := buf.String()
+	require.Contains(t, out, "name: setup")
+	require.Contains(t, out, "version: 1.0.0")
+	// YAML preserves the body as a string (any block scalar form is fine).
+	require.Contains(t, out, "# Setup")
+}
+
+func TestRunDescribe_UnknownSkill(t *testing.T) {
+	newMockCDN(t).withSetupSkill("# Setup\n")
+
+	err := runDescribe(t.Context(), io.Discard, "does-not-exist", "markdown")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not found")
+}
+
+func TestRunDescribe_InvalidFormat(t *testing.T) {
+	newMockCDN(t).withSetupSkill("# Setup\n")
+
+	err := runDescribe(t.Context(), io.Discard, "setup", "xml")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid")
+}
+
 // --- fetcher edge case ---
 
 func TestFetcher_SkillBody_EmptyURL(t *testing.T) {

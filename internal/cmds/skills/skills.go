@@ -21,6 +21,7 @@ func NewCmd() *cobra.Command {
 	}
 	cmd.AddCommand(
 		newListCmd(),
+		newDescribeCmd(),
 		newDownloadCmd(),
 	)
 	return cmd
