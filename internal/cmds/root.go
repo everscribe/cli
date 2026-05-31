@@ -8,6 +8,7 @@ import (
 	"github.com/everscribe/cli/internal/cmds/events"
 	"github.com/everscribe/cli/internal/cmds/keys"
 	"github.com/everscribe/cli/internal/cmds/projects"
+	"github.com/everscribe/cli/internal/cmds/skills"
 )
 
 // NewRoot returns the top-level `es` command with all subcommands attached.
@@ -26,6 +27,7 @@ func NewRoot(version string) *cobra.Command {
 		projects.NewCmd(),
 		keys.NewCmd(),
 		events.NewCmd(),
+		skills.NewCmd(),
 	)
 	return root
 }
