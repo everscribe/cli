@@ -81,7 +81,7 @@ func ResolveProjectID(flagValue string) (string, error) {
 		return "", err
 	}
 	if c.DefaultProjectID == "" {
-		return "", errors.New("no project specified — pass --project <id> or set a default with `es projects use <id>`")
+		return "", errors.New("No project specified. Pass --project <id> or set a default with `es projects use <id>`")
 	}
 	return c.DefaultProjectID, nil
 }

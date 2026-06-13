@@ -13,6 +13,7 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(
 		newListCmd(),
 		newGetCmd(),
+		newDescribeCmd(),
 		newCreateCmd(),
 		newUpdateCmd(),
 		newDeleteCmd(),
@@ -20,7 +21,6 @@ func NewCmd() *cobra.Command {
 		newCurrentCmd(),
 		newShareCmd(),
 		newUnshareCmd(),
-		newMembersCmd(),
 	)
 	return cmd
 }

@@ -84,17 +84,23 @@ func TestRunUnshare_ResolvesFromMembers(t *testing.T) {
 	require.Equal(t, "/v1/projects/proj-1/members/u_alice", deletePath)
 }
 
-func TestRunMembers_Table(t *testing.T) {
+func TestRunDescribe_ShowsProjectAndMembers(t *testing.T) {
 	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(types.ListProjectMembersResponse{Members: []types.ProjectMemberView{
-			{UserID: "u1", Username: "owner", Email: "owner@example.com", AccountRole: "owner", ProjectRole: "admin"},
-			{UserID: "u2", Username: "alice", Email: "alice@example.com", ProjectRole: "viewer"},
-		}})
+		switch r.URL.Path {
+		case "/v1/projects/proj-1":
+			_ = json.NewEncoder(w).Encode(types.ProjectResponse{Project: types.Project{ID: "proj-1", Name: "dev"}})
+		case "/v1/projects/proj-1/members":
+			_ = json.NewEncoder(w).Encode(types.ListProjectMembersResponse{Members: []types.ProjectMemberView{
+				{UserID: "u1", Username: "owner", Email: "owner@example.com", AccountRole: "owner", ProjectRole: "admin"},
+				{UserID: "u2", Username: "alice", Email: "alice@example.com", ProjectRole: "viewer"},
+			}})
+		}
 	})
 
 	var buf bytes.Buffer
-	require.NoError(t, runMembers(t.Context(), &buf, "proj-1", "table"))
+	require.NoError(t, runDescribe(t.Context(), &buf, "proj-1", "table"))
 	out := buf.String()
+	require.Contains(t, out, "dev")
 	require.Contains(t, out, "owner@example.com")
 	require.Contains(t, out, "owner")
 	require.Contains(t, out, "viewer")
