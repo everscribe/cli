@@ -18,6 +18,9 @@ func NewCmd() *cobra.Command {
 		newDeleteCmd(),
 		newUseCmd(),
 		newCurrentCmd(),
+		newShareCmd(),
+		newUnshareCmd(),
+		newMembersCmd(),
 	)
 	return cmd
 }
