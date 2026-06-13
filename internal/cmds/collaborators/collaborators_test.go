@@ -75,6 +75,37 @@ func TestRunRemove_ResolvesEmailToID(t *testing.T) {
 	require.Contains(t, buf.String(), "Removed alice@example.com")
 }
 
+func TestRunDescribe_ShowsProjectsAndRoles(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(types.ListCollaboratorsResponse{Collaborators: []types.Collaborator{
+			{ID: "c1", Email: "alice@example.com", Username: "alice", Status: "active", Projects: []types.CollaboratorProject{
+				{ID: "p1", Name: "dev", Role: "viewer"},
+				{ID: "p2", Name: "prod", Role: "admin"},
+			}},
+		}})
+	})
+
+	var buf bytes.Buffer
+	require.NoError(t, runDescribe(t.Context(), &buf, "alice@example.com", "table"))
+
+	out := buf.String()
+	require.Contains(t, out, "alice@example.com")
+	require.Contains(t, out, "dev")
+	require.Contains(t, out, "viewer")
+	require.Contains(t, out, "prod")
+	require.Contains(t, out, "admin")
+}
+
+func TestRunDescribe_NotACollaborator(t *testing.T) {
+	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(types.ListCollaboratorsResponse{})
+	})
+
+	err := runDescribe(t.Context(), io.Discard, "nobody@example.com", "table")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not one of your collaborators")
+}
+
 func TestRunRemove_NotACollaborator(t *testing.T) {
 	testutil.SetupSession(t, func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(types.ListCollaboratorsResponse{})
