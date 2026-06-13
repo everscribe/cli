@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/everscribe/cli/internal/cmds/auth"
+	"github.com/everscribe/cli/internal/cmds/collaborators"
 	"github.com/everscribe/cli/internal/cmds/events"
 	"github.com/everscribe/cli/internal/cmds/keys"
 	"github.com/everscribe/cli/internal/cmds/projects"
@@ -27,6 +28,7 @@ func NewRoot(version string) *cobra.Command {
 		projects.NewCmd(),
 		keys.NewCmd(),
 		events.NewCmd(),
+		collaborators.NewCmd(),
 		skills.NewCmd(),
 	)
 	return root
