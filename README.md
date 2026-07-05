@@ -9,7 +9,7 @@
 # Everscribe CLI
 
 `es` is the command-line interface for [Everscribe](https://everscribe.io).
-Manage projects, PI keys, inspect, query and live-tail audit events straight from your terminal.
+Manage projects, API keys, inspect, query and live-tail audit events straight from your terminal.
 
 ## Documentation
 
