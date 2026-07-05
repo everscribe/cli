@@ -26,7 +26,7 @@ func renderProject(w io.Writer, format string, p types.Project) error {
 }
 
 // renderProjects writes a slice of projects. JSON/YAML output is the
-// bare array (no `{"projects": [...]}` envelope) — friendlier for jq
+// bare array (no `{"projects": [...]}` envelope) - friendlier for jq
 // and yq scripting.
 func renderProjects(w io.Writer, format string, ps []types.Project) error {
 	f, err := output.ParseFormat(format, true)

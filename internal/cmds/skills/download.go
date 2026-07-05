@@ -64,7 +64,7 @@ func runDownload(ctx context.Context, stdout io.Writer, name, dirFlag string, fo
 	target := filepath.Join(root, skill.ClaudeCodeSkillName, "SKILL.md")
 	if !force {
 		if _, err := os.Stat(target); err == nil {
-			return fmt.Errorf("%s already exists — re-run with --force to overwrite", target)
+			return fmt.Errorf("%s already exists - re-run with --force to overwrite", target)
 		}
 	}
 	if err := os.MkdirAll(filepath.Dir(target), skillDirMode); err != nil {
@@ -102,7 +102,7 @@ func resolveSkillsRoot(dirFlag string) (string, error) {
 	return filepath.Join(home, ".claude", "skills"), nil
 }
 
-// findSkill returns the catalog entry whose Name matches. Case-sensitive —
+// findSkill returns the catalog entry whose Name matches. Case-sensitive -
 // the catalog's names are stable identifiers, not user-facing copy.
 func findSkill(ss []types.Skill, name string) (types.Skill, bool) {
 	for _, s := range ss {

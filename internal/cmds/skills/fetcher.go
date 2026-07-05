@@ -13,10 +13,9 @@ import (
 	"github.com/everscribe/cli/internal/types"
 )
 
-// DefaultManifestsURL is the public CDN that hosts the skill catalog
-// and SKILL.md bodies. Mirrors the spec's "Code organization" section:
-// the monorepo's internal/ui/manifests/ package serves these files,
-// CI publishes them here.
+// DefaultManifestsURL is the public host that serves the skill catalog
+// and SKILL.md bodies. The Everscribe manifests endpoint serves these
+// files; CI publishes them there.
 const DefaultManifestsURL = "https://everscribe.io"
 
 const manifestsOverrideEnv = "EVERSCRIBE_MANIFESTS_URL_OVERRIDE"
@@ -31,7 +30,7 @@ func resolveManifestsURL() string {
 	return DefaultManifestsURL
 }
 
-// Fetcher is a thin HTTP client for the skills CDN. No auth, no state —
+// Fetcher is a thin HTTP client for the skills CDN. No auth, no state -
 // the manifests are public. A small struct (rather than free functions)
 // so the base URL and underlying *http.Client are easy to swap in tests.
 type Fetcher struct {
@@ -91,7 +90,7 @@ func (f *Fetcher) Catalog(ctx context.Context) (*types.SkillCatalog, error) {
 }
 
 // SkillBody fetches the raw bytes at a skill's `source` URL. We don't
-// validate the markdown shape here — Claude Code reads the file on
+// validate the markdown shape here - Claude Code reads the file on
 // next invocation, and surfaces its own error if SKILL.md is malformed.
 // Pass the full URL from Skill.Source (it's an absolute URL in the
 // catalog, so we don't need to combine it with baseURL).

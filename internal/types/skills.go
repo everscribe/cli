@@ -2,10 +2,10 @@ package types
 
 // Skill is one entry in the Everscribe skills catalog
 // (everscribe.io/manifests/skills.json). The fields mirror the JSON
-// served by the monorepo's internal/ui/manifests/ package — keep
-// the two in sync when the catalog schema changes.
+// served by the Everscribe manifests endpoint; keep the two in sync
+// when the catalog schema changes.
 type Skill struct {
-	// Name is the catalog identifier (`setup`). Stable across versions —
+	// Name is the catalog identifier (`setup`). Stable across versions -
 	// callers refer to a skill by this name in `es skills download <name>`.
 	Name string `json:"name"`
 
@@ -29,7 +29,7 @@ type Skill struct {
 	ClaudeCodeSkillName string `json:"claude_code_skill_name"`
 }
 
-// SkillCatalog is the top-level shape of skills.json — a versioned
+// SkillCatalog is the top-level shape of skills.json - a versioned
 // schema plus the array of skills. The schema number lets us version
 // the catalog format independently of individual skill versions.
 type SkillCatalog struct {

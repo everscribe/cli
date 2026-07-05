@@ -1,7 +1,7 @@
 // Package types mirrors the Everscribe API's wire types. Kept in sync
-// by hand with github.com/everscribe/monorepo/internal/types — only
-// the subset the CLI actually uses lives here, since the monorepo is a
-// separate Go module that the CLI doesn't import directly.
+// by hand with the server's wire types; only the subset the CLI
+// actually uses lives here, since the API server is a separate service
+// the CLI doesn't import directly.
 package types
 
 import "time"

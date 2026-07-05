@@ -9,7 +9,7 @@ import (
 )
 
 // renderSkills writes the catalog as table / JSON / YAML. JSON/YAML
-// output is the bare array (no `{"skills": [...]}` envelope) — same
+// output is the bare array (no `{"skills": [...]}` envelope) - same
 // convention as `es projects list` for jq/yq friendliness.
 func renderSkills(w io.Writer, format string, ss []types.Skill) error {
 	f, err := output.ParseFormat(format, true)

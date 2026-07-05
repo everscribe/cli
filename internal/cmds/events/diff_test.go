@@ -184,7 +184,7 @@ func TestRenderDiff_TTYColorWraps(t *testing.T) {
 	// Construct a stylist with color forced on by going through the
 	// constructor (we can't directly, since ColorEnabled checks for a
 	// TTY). Verify that when we pass a *bytes.Buffer (not TTY), no
-	// ANSI sequences appear — proves the color path is gated.
+	// ANSI sequences appear - proves the color path is gated.
 	change := json.RawMessage(`{"before":{"x":1}, "after":{"x":2}}`)
 	var buf bytes.Buffer
 	require.NoError(t, renderDiff(&buf, change, output.NewStylist(&buf)))

@@ -15,7 +15,7 @@ func (c *Client) ListAPIKeys(ctx context.Context, projectID string) ([]types.API
 	return out.Keys, nil
 }
 
-// CreateAPIKey returns the plaintext key alongside the metadata —
+// CreateAPIKey returns the plaintext key alongside the metadata -
 // the plaintext is only surfaced this once.
 func (c *Client) CreateAPIKey(ctx context.Context, projectID, name string) (*types.CreateAPIKeyResponse, error) {
 	var out types.CreateAPIKeyResponse

@@ -39,7 +39,7 @@ func runDescribe(ctx context.Context, stdout io.Writer, email, format string) er
 	c := client.New(pat.Token)
 
 	// The list endpoint already returns each collaborator's shared projects, so
-	// describe is a client-side lookup by email — no separate call needed.
+	// describe is a client-side lookup by email - no separate call needed.
 	cols, err := c.ListCollaborators(ctx)
 	if err != nil {
 		return err

@@ -14,7 +14,7 @@ const spinnerInterval = 80 * time.Millisecond
 
 // Spinner animates a single status line on w until Stop is called.
 // When w is not a TTY (a pipe, a file, an io.Discard), Spinner is a
-// no-op — CI logs and piped stderr stay free of carriage returns and
+// no-op - CI logs and piped stderr stay free of carriage returns and
 // escape codes.
 //
 // Spinner is single-shot: create a new one per operation. Stop is

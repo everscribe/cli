@@ -46,7 +46,7 @@ func TestRenderProjects(t *testing.T) {
 			input:   fixtureProjects,
 			wantSub: []string{"ID", "NAME", "AGE", "proj-001", "ingest-pipeline", "proj-002", "alpha"},
 			extraCheck: func(t *testing.T, out string) {
-				// Age formatting is delegated to output.Age — sanity check
+				// Age formatting is delegated to output.Age - sanity check
 				// we got a relative duration ("d" or "h" or "m"), not a
 				// full timestamp.
 				require.Truef(t, strings.ContainsAny(out, "dhms"), "expected relative age in output:\n%s", out)

@@ -31,7 +31,7 @@ func newDescribeCmd() *cobra.Command {
 		Short: "Show a project's details and everyone with access",
 		Long: "Prints a project's metadata plus its members and the role each holds\n" +
 			"(the people you've shared it with, plus you as owner).\n\n" +
-			"Target the project by positional id, --project, or — with neither — the\n" +
+			"Target the project by positional id, --project, or - with neither - the\n" +
 			"project saved by `es projects use`.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -109,7 +109,7 @@ func memberRole(m types.ProjectMemberView) string {
 		return "admin"
 	}
 	if m.ProjectRole == "" {
-		return "—"
+		return "-"
 	}
 	return m.ProjectRole
 }

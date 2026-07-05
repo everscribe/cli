@@ -3,7 +3,7 @@ package types
 import "time"
 
 // APIKey is a project-scoped ingest credential. Plaintext is only
-// returned by the create endpoint via CreateAPIKeyResponse — list
+// returned by the create endpoint via CreateAPIKeyResponse - list
 // responses redact to the prefix.
 type APIKey struct {
 	ID         string    `json:"id" yaml:"id"`

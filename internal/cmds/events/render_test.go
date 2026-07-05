@@ -66,7 +66,7 @@ func TestRenderEventsList(t *testing.T) {
 			format:  "table",
 			header:  true,
 			mutate:  func(e *types.Event) { e.TenantID = "" },
-			wantSub: []string{"—"},
+			wantSub: []string{"-"},
 		},
 		{
 			name:    "json is bare array",
@@ -107,7 +107,7 @@ func TestRenderEventsList(t *testing.T) {
 // TestColorizeResult covers the plain (non-TTY) path. ANSI wrapping
 // itself is exercised in internal/output/color_test.go; here we just
 // verify that colorizeResult doesn't mangle status text and returns
-// "—" for empty/whitespace-only input.
+// "-" for empty/whitespace-only input.
 func TestColorizeResult(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -121,8 +121,8 @@ func TestColorizeResult(t *testing.T) {
 		{name: "denied passes through", status: "denied", want: "denied"},
 		{name: "throttled passes through", status: "throttled", want: "throttled"},
 		{name: "unknown status passes through", status: "weird", want: "weird"},
-		{name: "empty status renders dash", status: "", want: "—"},
-		{name: "whitespace status renders dash", status: "  ", want: "—"},
+		{name: "empty status renders dash", status: "", want: "-"},
+		{name: "whitespace status renders dash", status: "  ", want: "-"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

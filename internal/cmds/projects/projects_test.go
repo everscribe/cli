@@ -130,7 +130,7 @@ func TestRunCreate_PropagatesAPIError(t *testing.T) {
 	require.ErrorContains(t, err, "already taken")
 }
 
-// Sanity that the cobra command tree wires everything up — exercising
+// Sanity that the cobra command tree wires everything up - exercising
 // New/CreateCmd/etc. by invoking the parent and walking subcommands.
 func TestNewCmd_HasAllSubcommands(t *testing.T) {
 	cmd := NewCmd()
@@ -197,7 +197,7 @@ func TestRunCurrent_NoneSet(t *testing.T) {
 
 func TestRunCurrent_FallsBackWhenNotLoggedIn(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	// Save a project default but no pat.json — simulates `es auth logout`
+	// Save a project default but no pat.json - simulates `es auth logout`
 	// then re-running `es projects current`.
 	require.NoError(t, config.SaveConfig(&config.CLIConfig{DefaultProjectID: "proj-001"}))
 

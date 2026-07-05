@@ -1,4 +1,4 @@
-// Package collaborators implements `es collaborators ...` — managing the people
+// Package collaborators implements `es collaborators ...` - managing the people
 // you can share projects with.
 package collaborators
 

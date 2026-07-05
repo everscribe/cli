@@ -3,9 +3,9 @@ package events
 import "encoding/json"
 
 // actorSummary / targetSummary / resultSummary mirror the structs the
-// monorepo's UI templates use to render the event list. Field shapes
-// match the JSON the SDK ingests, so we can json-decode the raw event
-// columns into them directly.
+// Everscribe UI uses to render the event list. Field shapes match the
+// JSON the SDK ingests, so we can json-decode the raw event columns
+// into them directly.
 type actorSummary struct {
 	Type        string `json:"type"`
 	ID          string `json:"id"`
@@ -23,8 +23,8 @@ type resultSummary struct {
 	Message string `json:"message,omitempty"`
 }
 
-// unmarshalActor returns the zero struct for empty/unparseable input —
-// callers fall through to a "—" rendering rather than failing the row.
+// unmarshalActor returns the zero struct for empty/unparseable input -
+// callers fall through to a "-" rendering rather than failing the row.
 func unmarshalActor(raw json.RawMessage) actorSummary {
 	var a actorSummary
 	if len(raw) > 0 {
@@ -50,7 +50,7 @@ func unmarshalResult(raw json.RawMessage) resultSummary {
 }
 
 // formatActor renders an actorSummary as "<display_name> (<type>)" or
-// just "<type>" if there's no display name; falls back to "—".
+// just "<type>" if there's no display name; falls back to "-".
 func formatActor(a actorSummary) string {
 	display := a.DisplayName
 	if display == "" {
@@ -64,12 +64,12 @@ func formatActor(a actorSummary) string {
 	case a.Type != "":
 		return a.Type
 	default:
-		return "—"
+		return "-"
 	}
 }
 
 // formatTarget renders "<type>/<id>" or "<type>" when id is empty;
-// falls back to "—" for fully-empty targets.
+// falls back to "-" for fully-empty targets.
 func formatTarget(t targetSummary) string {
 	switch {
 	case t.Type != "" && t.ID != "":
@@ -77,6 +77,6 @@ func formatTarget(t targetSummary) string {
 	case t.Type != "":
 		return t.Type
 	default:
-		return "—"
+		return "-"
 	}
 }

@@ -114,7 +114,7 @@ func runList(ctx context.Context, stdout, stderr io.Writer, projectID string, ff
 // validateQueryFlags enforces the mutual exclusion between --prompt,
 // --query, and the structured filter flags. The CLI rejects mixed
 // usage even though the API would technically merge flat params with
-// a DSL — combining a translated NL prompt with hand-written filters
+// a DSL - combining a translated NL prompt with hand-written filters
 // makes the resulting query opaque to users, so we force one mode.
 func validateQueryFlags(ff filterFlags, prompt, query string) error {
 	if prompt != "" && query != "" {
@@ -171,7 +171,7 @@ func promptTranslationError(prompt string, nlp *types.GenerateNLPFiltersResponse
 }
 
 // printPromptTranslation surfaces the translated DSL on stderr so
-// table-mode users can see what the NLP layer produced — both for
+// table-mode users can see what the NLP layer produced - both for
 // transparency and to teach the DSL syntax.
 func printPromptTranslation(stderr io.Writer, nlp *types.GenerateNLPFiltersResponse) {
 	fmt.Fprintf(stderr, "→ translated to DSL: %s\n", nlp.DSL)
@@ -181,7 +181,7 @@ func printPromptTranslation(stderr io.Writer, nlp *types.GenerateNLPFiltersRespo
 }
 
 // parsedFormat is a best-effort re-parse of --format that returns the
-// zero value for invalid input — used only by display-only branches
+// zero value for invalid input - used only by display-only branches
 // where the renderer has already validated the flag.
 func parsedFormat(s string) output.Format {
 	f, _ := output.ParseFormat(s, true)

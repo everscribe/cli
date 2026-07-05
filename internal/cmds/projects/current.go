@@ -34,7 +34,7 @@ func runCurrent(ctx context.Context, stdout io.Writer) error {
 
 	// Try to enrich the saved ID with the project's name. If the user
 	// is logged out or the project is unreachable (404 / network),
-	// fall back to printing the bare ID rather than failing — the
+	// fall back to printing the bare ID rather than failing - the
 	// command's primary value is "tell me what's saved", and the saved
 	// value is always the ID.
 	pat, err := config.Load()

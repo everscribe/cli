@@ -21,7 +21,7 @@ import (
 
 // syncBuffer is a goroutine-safe bytes.Buffer. The watch test runs
 // runWatch on a goroutine while the main test goroutine reads stdout
-// — without locking, the race detector trips on concurrent Write/String.
+// - without locking, the race detector trips on concurrent Write/String.
 type syncBuffer struct {
 	mu  sync.Mutex
 	buf bytes.Buffer

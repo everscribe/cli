@@ -30,6 +30,6 @@ func TestSpinner_StopReturnsPromptly(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(time.Second):
-		t.Fatal("Stop did not return — spinner goroutine likely leaked")
+		t.Fatal("Stop did not return - spinner goroutine likely leaked")
 	}
 }

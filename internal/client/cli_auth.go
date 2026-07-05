@@ -13,7 +13,7 @@ import (
 )
 
 // IssueDeviceCode requests a new (user_code, device_code) pair from
-// the API. Unauthenticated — the device_code is the credential for
+// the API. Unauthenticated - the device_code is the credential for
 // the subsequent exchange.
 func (c *Client) IssueDeviceCode(ctx context.Context) (*types.IssueDeviceCodeResponse, error) {
 	var out types.IssueDeviceCodeResponse

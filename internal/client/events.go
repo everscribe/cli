@@ -15,7 +15,7 @@ import (
 //
 // Q carries the structured filter DSL passed through `?q=...`. The
 // server merges it with the flat fields (Since, Action, ...) but the
-// CLI sends one or the other — never both — to keep semantics obvious
+// CLI sends one or the other - never both - to keep semantics obvious
 // to the user.
 type ListEventsFilter struct {
 	Since      time.Time

@@ -37,7 +37,7 @@ func newLoginCmd() *cobra.Command {
 
 // runLogin runs the RFC 8628 device authorization grant:
 //
-//  1. POST /v1/cli/device-codes — receive (user_code, device_code) pair
+//  1. POST /v1/cli/device-codes - receive (user_code, device_code) pair
 //  2. show user_code + verification URL to the user (and open it in
 //     a browser unless --no-browser)
 //  3. poll POST /v1/cli/device-tokens at the server-suggested interval
@@ -84,7 +84,7 @@ func runLogin(ctx context.Context, stdout io.Writer, noBrowser bool) error {
 
 	for {
 		// Wait `interval` (or until context cancels) before each poll.
-		// Polling immediately on entry would just waste a request — the
+		// Polling immediately on entry would just waste a request - the
 		// user hasn't even seen the code yet.
 		select {
 		case <-ctx.Done():
@@ -131,7 +131,7 @@ func runLogin(ctx context.Context, stdout io.Writer, noBrowser bool) error {
 }
 
 // openBrowser launches the OS default browser at targetURL. Detached
-// from the parent — Start (not Run) so we don't block on the browser
+// from the parent - Start (not Run) so we don't block on the browser
 // process.
 func openBrowser(targetURL string) error {
 	var cmd string

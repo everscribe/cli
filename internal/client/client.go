@@ -138,7 +138,7 @@ func (c *Client) Do(ctx context.Context, method, path string, query url.Values, 
 }
 
 // readAPIError tries to interpret the response body as a JSON envelope first,
-// then falls back to treating it as plain text. The monorepo currently uses
+// then falls back to treating it as plain text. The API currently uses
 // http.Error (plain text); the JSON path is forward-compatibility.
 func readAPIError(resp *http.Response) error {
 	body, _ := io.ReadAll(resp.Body)

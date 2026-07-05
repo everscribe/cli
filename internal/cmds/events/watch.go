@@ -67,12 +67,12 @@ func runWatch(ctx context.Context, stdout io.Writer, projectID string, ff filter
 
 	// Print column headers up front in table mode so the user sees
 	// the layout while waiting. JSON/YAML watchers stream one bare
-	// array per batch — easy to parse line-by-line.
+	// array per batch - easy to parse line-by-line.
 	if err := printWatchHeader(stdout, format); err != nil {
 		return err
 	}
 
-	// Watch starts at "now" — the user just ran `events list` to see
+	// Watch starts at "now" - the user just ran `events list` to see
 	// history; watch is for tailing.
 	highWater := time.Now()
 	cf.Since = highWater.Add(-watchOverlap)
@@ -121,7 +121,7 @@ func runWatch(ctx context.Context, stdout io.Writer, projectID string, ff filter
 
 // watchRowFmt is the fixed-width column layout for table-mode watch
 // output. tabwriter would re-align columns on each Flush, breaking
-// the rolling-append model — fixed widths keep rows visually
+// the rolling-append model - fixed widths keep rows visually
 // consistent across batches at the cost of occasional truncation.
 //
 // Total ~144 columns: assumes a wide terminal. The ID column is
@@ -198,7 +198,7 @@ func reverse(evs []types.Event) {
 
 // pruneSeen guards against unbounded memory growth on long-running
 // watch sessions. We only need entries within the current polling
-// window — anything older than `since` can't reappear. As a
+// window - anything older than `since` can't reappear. As a
 // heuristic, when seen grows past maxSeen we drop everything and
 // repopulate from the current batch; the overlap window will refill
 // it on the next tick. The worst case is one batch of duplicates

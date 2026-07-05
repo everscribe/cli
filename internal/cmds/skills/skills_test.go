@@ -16,7 +16,7 @@ import (
 	"github.com/everscribe/cli/internal/types"
 )
 
-// mockCDN bundles a httptest.Server with a mutable catalog + body —
+// mockCDN bundles a httptest.Server with a mutable catalog + body -
 // tests configure both via the returned pointers AFTER the server is
 // up, so they can plug the server's URL into the catalog's Source
 // fields without a chicken-and-egg dance.
@@ -81,7 +81,7 @@ func TestRunList_HappyPath_JSON(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, runList(t.Context(), &buf, "json"))
 
-	// Bare array, not envelope-wrapped — matches `es projects list` convention.
+	// Bare array, not envelope-wrapped - matches `es projects list` convention.
 	var got []types.Skill
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &got))
 	require.Len(t, got, 1)

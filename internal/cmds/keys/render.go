@@ -45,7 +45,7 @@ func keysTable(w io.Writer, ks []types.APIKey) error {
 // renderCreatedKey writes the response from POST /keys. For json/yaml
 // the full envelope (including plaintext) is dumped. For table, the
 // metadata is printed first, then the plaintext is highlighted with a
-// banner — it's only returned this once and the user has to copy it.
+// banner - it's only returned this once and the user has to copy it.
 func renderCreatedKey(w io.Writer, format string, resp *types.CreateAPIKeyResponse) error {
 	f, err := output.ParseFormat(format, true)
 	if err != nil {
@@ -61,7 +61,7 @@ func renderCreatedKey(w io.Writer, format string, resp *types.CreateAPIKeyRespon
 			return err
 		}
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Save this token now — it will not be shown again:")
+		fmt.Fprintln(w, "Save this token now - it will not be shown again:")
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "  "+resp.Plaintext)
 		return nil

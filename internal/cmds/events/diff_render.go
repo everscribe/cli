@@ -28,7 +28,7 @@ func decodeRawJSON(raw json.RawMessage) any {
 // Returns ErrNoChange if the event has no Change field (most events
 // won't), or if the Change exists but neither before nor after is set.
 //
-// Strategy mirrors the monorepo's internal/ui/diff.go: pretty-print
+// Strategy mirrors the Everscribe server's diff renderer: pretty-print
 // each side as indented JSON, line-split, run an LCS-based line diff,
 // and emit `+`/`-` lines with optional color when stdout is a TTY.
 func renderDiff(w io.Writer, raw json.RawMessage, sty output.Stylist) error {
@@ -70,7 +70,7 @@ func renderDiff(w io.Writer, raw json.RawMessage, sty output.Stylist) error {
 var ErrNoChange = fmt.Errorf("event has no change record")
 
 // prettyJSON re-renders raw JSON with 2-space indentation. Returns
-// "null" for empty/null input — the diff still has something to
+// "null" for empty/null input - the diff still has something to
 // show against (create events have before=null; delete events have
 // after=null).
 func prettyJSON(raw json.RawMessage) string {
@@ -102,7 +102,7 @@ type diffEntry struct {
 }
 
 // lineDiff computes a unified-style diff via LCS. Mirrors the algorithm
-// in monorepo/internal/ui/diff.go; the only difference is the output
+// the Everscribe server uses; the only difference is the output
 // shape (linear list of {kind, text} entries instead of side-by-side
 // pairs). For event diffs the inputs are small (under 100 lines per
 // side typically) so the O(n*m) DP is fine.

@@ -52,7 +52,7 @@ func eventsTable(w io.Writer, evs []types.Event, header bool, sty output.Stylist
 
 func tenantOrDash(t string) string {
 	if t == "" {
-		return "—"
+		return "-"
 	}
 	return t
 }
@@ -63,7 +63,7 @@ func tenantOrDash(t string) string {
 func colorizeResult(r resultSummary, sty output.Stylist) string {
 	status := strings.ToLower(strings.TrimSpace(r.Status))
 	if status == "" {
-		return "—"
+		return "-"
 	}
 	switch status {
 	case "ok", "success":
@@ -95,7 +95,7 @@ type describeView struct {
 }
 
 // buildDescribeView decodes the raw JSON columns. Decode errors fall
-// through to the raw string — the CLI shouldn't hide an event from
+// through to the raw string - the CLI shouldn't hide an event from
 // the user just because one column has unexpected contents.
 func buildDescribeView(e types.Event) describeView {
 	return describeView{

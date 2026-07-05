@@ -28,7 +28,7 @@ func ConfigPath() (string, error) {
 }
 
 // LoadConfig reads the preferences file. A missing file is not an
-// error — first-run UX shouldn't require explicit init.
+// error - first-run UX shouldn't require explicit init.
 func LoadConfig() (*CLIConfig, error) {
 	p, err := ConfigPath()
 	if err != nil {
@@ -81,7 +81,7 @@ func ResolveProjectID(flagValue string) (string, error) {
 		return "", err
 	}
 	if c.DefaultProjectID == "" {
-		return "", errors.New("No project specified. Pass --project <id> or set a default with `es projects use <id>`")
+		return "", errors.New("no project specified. Pass --project <id> or set a default with `es projects use <id>`")
 	}
 	return c.DefaultProjectID, nil
 }

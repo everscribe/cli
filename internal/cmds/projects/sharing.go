@@ -28,10 +28,10 @@ func activeCollaboratorUserID(ctx context.Context, c *client.Client, email strin
 	for _, col := range cols {
 		if strings.EqualFold(col.Email, email) {
 			if col.Status != "active" || col.UserID == "" {
-				return "", fmt.Errorf("%s hasn't created an Everscribe account yet — you can only share with active collaborators", email)
+				return "", fmt.Errorf("%s hasn't created an Everscribe account yet - you can only share with active collaborators", email)
 			}
 			return col.UserID, nil
 		}
 	}
-	return "", fmt.Errorf("%s is not one of your collaborators — add them first with `es collaborators add %s`", email, email)
+	return "", fmt.Errorf("%s is not one of your collaborators - add them first with `es collaborators add %s`", email, email)
 }

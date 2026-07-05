@@ -12,7 +12,7 @@ import (
 	"github.com/everscribe/cli/internal/types"
 )
 
-// describeView is what gets emitted in JSON / YAML — the catalog
+// describeView is what gets emitted in JSON / YAML - the catalog
 // entry plus the fetched SKILL.md body inline. Tag names match the
 // catalog's JSON field names so `es skills describe setup -o json
 // | jq '.body'` (etc.) feels consistent across surfaces.

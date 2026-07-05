@@ -18,7 +18,7 @@ func newLogoutCmd() *cobra.Command {
 
 The PAT itself remains valid server-side until it expires (90 days by
 default). The Everscribe API explicitly rejects PAT-authenticated
-callers attempting to revoke their own token — by design, so a leaked
+callers attempting to revoke their own token - by design, so a leaked
 PAT can't quietly self-revoke out of the audit trail. To invalidate
 the token across every device that has a copy, revoke it from
 Developer Settings (https://everscribe.io/settings/developer).`,
