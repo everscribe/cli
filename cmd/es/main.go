@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/everscribe/cli/internal/cmds"
 )
@@ -16,8 +17,21 @@ import (
 var version = "dev"
 
 func main() {
-	if err := cmds.NewRoot(version).Execute(); err != nil {
+	info, ok := debug.ReadBuildInfo()
+	if err := cmds.NewRoot(resolveVersion(version, info, ok)).Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
+}
+
+// resolveVersion prefers the link-time version, then the module version
+// that go install records, then "dev".
+func resolveVersion(linked string, info *debug.BuildInfo, ok bool) string {
+	if linked != "dev" {
+		return linked
+	}
+	if ok && info != nil && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return linked
 }
